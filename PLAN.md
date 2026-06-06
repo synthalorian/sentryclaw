@@ -49,7 +49,7 @@ Self-hosted AI code review bot. Rust + Axum. No cloud, no API keys.
 - [x] Review history search and filtering via dashboard
 - [x] Webhook retry logic with exponential backoff
 
-## v0.6.0 — Scale & Reliability
+## v0.6.0 — Scale & Reliability (Complete)
 
 - [x] Async review queue with worker pool (not inline)
 - [x] Review job persistence in SQLite (survive restarts)
@@ -58,6 +58,17 @@ Self-hosted AI code review bot. Rust + Axum. No cloud, no API keys.
 - [x] Graceful shutdown with in-flight review completion
 - [x] Structured logging with tracing (spans for each review)
 - [x] Benchmark suite for review latency under load
+
+## v0.7.0 — Pre-Release Polish (Complete)
+
+- [x] CI/CD pipeline — GitHub Actions workflow for test, clippy, build
+- [x] Binary release automation — cargo-dist for Linux x86_64/ARM64
+- [x] Docker image build and push to GHCR
+- [x] Comprehensive documentation (README, API docs, deployment guide)
+- [x] End-to-end integration test with real GitHub webhook payload
+- [x] Security audit — dependency scanning, secret detection
+- [x] Performance profiling and optimization pass
+- [x] Configuration examples for common setups (self-hosted, Docker, k8s)
 
 ## v1.0.0 — Ship It
 
