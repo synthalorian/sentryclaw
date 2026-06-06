@@ -17,3 +17,44 @@ base_url = "http://localhost:8080"
 model = "codellama-34b"
 max_tokens = 4096
 temperature = 0.1
+
+[review]
+security = true
+style = true
+performance = true
+correctness = true
+maintainability = true
+inline_comments = true
+summary_comment = true
+
+[diff_filter]
+enabled = true
+lockfile_patterns = [
+    "Cargo.lock",
+    "package-lock.json",
+    "yarn.lock",
+    "Pipfile.lock",
+    "poetry.lock",
+    "go.sum",
+    "Gemfile.lock",
+    "composer.lock",
+    "*.lock",
+]
+generated_patterns = [
+    "*.min.js",
+    "*.min.css",
+    "*.map",
+    "dist/",
+    "build/",
+    "target/",
+    "node_modules/",
+    "*.pb.go",
+    "*_pb2.py",
+    "*_pb2_grpc.py",
+    "*.generated.*",
+]
+
+[batching]
+enabled = false
+timeout_seconds = 30
+max_size = 10

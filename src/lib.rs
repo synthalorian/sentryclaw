@@ -1,6 +1,8 @@
 pub mod config;
+pub mod diff_filter;
 pub mod github;
 pub mod gitlab;
+pub mod inline_comments;
 pub mod llm;
 pub mod review;
 
