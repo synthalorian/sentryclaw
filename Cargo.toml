@@ -24,6 +24,8 @@ config = "0.14"
 clap = { version = "4.4", features = ["derive"] }
 tempfile = "3.9"
 
+regex = "1.10"
+
 [dev-dependencies]
 tokio-test = "0.4"
 tower = "0.5"
