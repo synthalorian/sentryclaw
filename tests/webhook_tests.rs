@@ -7,7 +7,8 @@ use axum::{
 use std::sync::Arc;
 use tower::util::ServiceExt;
 
-use sentryshark::config::{AppConfig, GitHubConfig, GitLabConfig, LlmConfig, ReviewConfig, DiffFilterConfig, BatchingConfig};
+use sentryshark::config::{AppConfig, GitHubConfig, GitLabConfig, LlmConfig, ReviewConfig, DiffFilterConfig, BatchingConfig, DatabaseConfig, DashboardConfig};
+use sentryshark::db::Database;
 use sentryshark::AppState;
 
 fn create_test_app() -> Router {
@@ -20,10 +21,14 @@ fn create_test_app() -> Router {
             webhook_secret: "github-secret".to_string(),
             app_id: "test-app-id".to_string(),
             private_key_path: "/tmp/test-key.pem".to_string(),
+            use_app_auth: false,
+            installation_id: None,
         }),
         gitlab: Some(GitLabConfig {
             webhook_secret: "gitlab-secret".to_string(),
             access_token: "test-token".to_string(),
+            ci_cd_enabled: false,
+            base_url: "https://gitlab.com".to_string(),
         }),
         llm: LlmConfig {
             provider: "test".to_string(),
@@ -51,10 +56,15 @@ fn create_test_app() -> Router {
             timeout_seconds: 30,
             max_size: 10,
         }),
+        database: Some(DatabaseConfig::default()),
+        dashboard: Some(DashboardConfig::default()),
     };
+
+    let database = Arc::new(Database::new(":memory:").unwrap());
 
     let state = AppState {
         config: Arc::new(config),
+        database,
     };
 
     Router::new()
