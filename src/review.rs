@@ -1,12 +1,12 @@
-use tracing::{info, error};
-use std::process::Command;
 use std::collections::HashMap;
-use tokio::sync::Mutex;
+use std::process::Command;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
+use tracing::{error, info};
 
-use crate::diff_filter::DiffFilter;
 use crate::config::AppConfig;
+use crate::diff_filter::DiffFilter;
 
 /// Sanitize a git ref name to prevent command injection.
 /// Only allows alphanumeric characters, hyphens, underscores, dots, and slashes.
@@ -14,7 +14,10 @@ fn sanitize_git_ref(ref_name: &str) -> anyhow::Result<String> {
     if ref_name.is_empty() {
         return Err(anyhow::anyhow!("git ref name cannot be empty"));
     }
-    if ref_name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.' || b == b'/') {
+    if ref_name
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.' || b == b'/')
+    {
         Ok(ref_name.to_string())
     } else {
         Err(anyhow::anyhow!("invalid git ref name: {}", ref_name))
@@ -36,7 +39,12 @@ fn validate_repo_url(url: &str) -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("invalid repo URL scheme: {}", url));
     }
     // Reject URLs with shell metacharacters
-    if url.bytes().any(|b| matches!(b, b';' | b'&' | b'|' | b'$' | b'`' | b'<' | b'>' | b'(' | b')')) {
+    if url.bytes().any(|b| {
+        matches!(
+            b,
+            b';' | b'&' | b'|' | b'$' | b'`' | b'<' | b'>' | b'(' | b')'
+        )
+    }) {
         return Err(anyhow::anyhow!("repo URL contains forbidden characters"));
     }
     Ok(())
@@ -84,11 +92,7 @@ impl ReviewEngine {
         }
     }
 
-    pub fn clone_and_diff(&self,
-        repo_url: &str,
-        base: &str,
-        head: &str,
-    ) -> anyhow::Result<String> {
+    pub fn clone_and_diff(&self, repo_url: &str, base: &str, head: &str) -> anyhow::Result<String> {
         // Validate inputs to prevent command injection
         validate_repo_url(repo_url)?;
         let base = sanitize_git_ref(base)?;
@@ -166,7 +170,7 @@ impl ReviewEngine {
         commit: CommitRange,
     ) -> Option<ReviewBatch> {
         let mut batches = self.pending_batches.lock().await;
-        
+
         if let Some(batch) = batches.get_mut(batch_key) {
             batch.commits.push(commit);
             info!(
@@ -182,14 +186,15 @@ impl ReviewEngine {
                 created_at: Instant::now(),
             };
             batches.insert(batch_key.to_string(), batch.clone());
-            info!("Created new review batch {} for repo {}", batch_key, repo_url);
+            info!(
+                "Created new review batch {} for repo {}",
+                batch_key, repo_url
+            );
             Some(batch)
         }
     }
 
-    pub async fn get_batch(&self,
-        batch_key: &str,
-    ) -> Option<ReviewBatch> {
+    pub async fn get_batch(&self, batch_key: &str) -> Option<ReviewBatch> {
         let mut batches = self.pending_batches.lock().await;
         batches.remove(batch_key)
     }
@@ -201,11 +206,11 @@ impl ReviewEngine {
         max_size: usize,
     ) -> bool {
         let batches = self.pending_batches.lock().await;
-        
+
         if let Some(batch) = batches.get(batch_key) {
             let elapsed = batch.created_at.elapsed();
             let size = batch.commits.len();
-            
+
             if elapsed >= timeout || size >= max_size {
                 info!(
                     "Batch {} ready for processing (elapsed={:?}, size={})",
@@ -238,24 +243,19 @@ impl ReviewEngine {
 
         // For multiple commits, merge all diffs
         let mut combined_diff = String::new();
-        
+
         for commit in commits {
             match self.clone_and_diff(repo_url, &commit.base, &commit.head) {
                 Ok(diff) => {
                     if !diff.is_empty() {
-                        combined_diff.push_str(&format!(
-                            "\n# Diff for {}..{}\n",
-                            commit.base, commit.head
-                        ));
+                        combined_diff
+                            .push_str(&format!("\n# Diff for {}..{}\n", commit.base, commit.head));
                         combined_diff.push_str(&diff);
                         combined_diff.push('\n');
                     }
                 }
                 Err(e) => {
-                    error!(
-                        "Failed to diff {}..{}: {}",
-                        commit.base, commit.head, e
-                    );
+                    error!("Failed to diff {}..{}: {}", commit.base, commit.head, e);
                 }
             }
         }
@@ -272,39 +272,43 @@ mod tests {
     async fn test_batch_operations() {
         let config = AppConfig::default();
         let engine = ReviewEngine::new(&config);
-        
+
         let batch_key = "test/repo:123";
         let repo_url = "https://github.com/test/repo.git";
-        
+
         // Add first commit
-        let batch = engine.add_to_batch(
-            batch_key,
-            repo_url,
-            CommitRange {
-                base: "main".to_string(),
-                head: "feature-1".to_string(),
-            },
-        ).await;
-        
+        let batch = engine
+            .add_to_batch(
+                batch_key,
+                repo_url,
+                CommitRange {
+                    base: "main".to_string(),
+                    head: "feature-1".to_string(),
+                },
+            )
+            .await;
+
         assert!(batch.is_some());
-        
+
         // Add second commit
-        let batch = engine.add_to_batch(
-            batch_key,
-            repo_url,
-            CommitRange {
-                base: "main".to_string(),
-                head: "feature-2".to_string(),
-            },
-        ).await;
-        
+        let batch = engine
+            .add_to_batch(
+                batch_key,
+                repo_url,
+                CommitRange {
+                    base: "main".to_string(),
+                    head: "feature-2".to_string(),
+                },
+            )
+            .await;
+
         assert!(batch.is_none());
-        
+
         // Get batch
         let batch = engine.get_batch(batch_key).await;
         assert!(batch.is_some());
         assert_eq!(batch.unwrap().commits.len(), 2);
-        
+
         // Should be empty after removal
         let batch = engine.get_batch(batch_key).await;
         assert!(batch.is_none());
@@ -314,31 +318,41 @@ mod tests {
     async fn test_should_process_batch() {
         let config = AppConfig::default();
         let engine = ReviewEngine::new(&config);
-        
+
         let batch_key = "test/repo:456";
-        
+
         // Empty batch should not process
-        assert!(!engine.should_process_batch(batch_key, Duration::from_secs(0), 1).await);
-        
+        assert!(
+            !engine
+                .should_process_batch(batch_key, Duration::from_secs(0), 1)
+                .await
+        );
+
         // Add a commit
-        engine.add_to_batch(
-            batch_key,
-            "https://github.com/test/repo.git",
-            CommitRange {
-                base: "main".to_string(),
-                head: "feature".to_string(),
-            },
-        ).await;
-        
+        engine
+            .add_to_batch(
+                batch_key,
+                "https://github.com/test/repo.git",
+                CommitRange {
+                    base: "main".to_string(),
+                    head: "feature".to_string(),
+                },
+            )
+            .await;
+
         // Should process with zero timeout
-        assert!(engine.should_process_batch(batch_key, Duration::from_secs(0), 10).await);
+        assert!(
+            engine
+                .should_process_batch(batch_key, Duration::from_secs(0), 10)
+                .await
+        );
     }
 
     #[tokio::test]
     async fn test_clone_and_diff_real_repo() {
         let config = AppConfig::default();
         let engine = ReviewEngine::new(&config);
-        
+
         // Use a small, stable public repo for testing
         let repo_url = "https://github.com/octocat/Hello-World.git";
         let base = "main";

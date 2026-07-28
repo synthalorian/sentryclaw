@@ -33,16 +33,16 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN useradd -m -u 1000 sentryshark
+RUN useradd -m -u 1000 sentryclaw
 
 # Copy binary from builder
-COPY --from=builder /app/target/release/sentryshark /usr/local/bin/sentryshark
+COPY --from=builder /app/target/release/sentryclaw /usr/local/bin/sentryclaw
 COPY --from=builder /app/config.example.toml ./config.example.toml
 
 # Set ownership
-RUN chown -R sentryshark:sentryshark /app
+RUN chown -R sentryclaw:sentryclaw /app
 
-USER sentryshark
+USER sentryclaw
 
 EXPOSE 3000
 
@@ -52,4 +52,4 @@ ENV CONFIG_PATH=/app/config.toml
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
-CMD ["sentryshark"]
+CMD ["sentryclaw"]

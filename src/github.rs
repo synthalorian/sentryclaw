@@ -1,22 +1,26 @@
 use axum::{
-    extract::State,
     body::Bytes,
-    http::{StatusCode, HeaderMap},
+    extract::State,
+    http::{HeaderMap, StatusCode},
 };
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, instrument};
 use hmac::{Hmac, Mac};
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
+use tracing::{error, info, instrument, warn};
 
-use crate::{AppState, review::{ReviewEngine, CommitRange}, llm::LlmClient};
-use crate::config::GitHubConfig;
-use crate::inline_comments::{ReviewVerdict, SeverityLevel, ReviewParser};
-use crate::retry::{retry_with_backoff, RetryConfig};
-use crate::auto_approve::{AutoApprover, auto_approve_message};
+use crate::auto_approve::{auto_approve_message, AutoApprover};
 use crate::cache::ReviewCache;
+use crate::config::GitHubConfig;
+use crate::inline_comments::{ReviewParser, ReviewVerdict, SeverityLevel};
+use crate::retry::{retry_with_backoff, RetryConfig};
+use crate::{
+    llm::LlmClient,
+    review::{CommitRange, ReviewEngine},
+    AppState,
+};
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -57,9 +61,7 @@ impl GitHubAuth {
         let private_key_pem = std::fs::read_to_string(&self.config.private_key_path)?;
         let encoding_key = jsonwebtoken::EncodingKey::from_rsa_pem(private_key_pem.as_bytes())?;
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_secs() as usize;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
         let exp = now + 600;
 
         let claims = GitHubJwtClaims {
@@ -94,7 +96,7 @@ impl GitHubAuth {
                 .get("https://api.github.com/app/installations")
                 .header("Authorization", format!("Bearer {}", jwt))
                 .header("Accept", "application/vnd.github.v3+json")
-                .header("User-Agent", "SentryShark")
+                .header("User-Agent", "SentryClaw")
                 .send()
                 .await?;
 
@@ -122,7 +124,7 @@ impl GitHubAuth {
             .post(&url)
             .header("Authorization", format!("Bearer {}", jwt))
             .header("Accept", "application/vnd.github.v3+json")
-            .header("User-Agent", "SentryShark")
+            .header("User-Agent", "SentryClaw")
             .send()
             .await?;
 
@@ -148,11 +150,20 @@ impl GitHubAuth {
             // When not using app auth, the private_key_path should contain a PAT/token,
             // not the app private key. Read it and return as the token.
             let token = std::fs::read_to_string(&self.config.private_key_path)
-                .map_err(|e| anyhow::anyhow!("Failed to read token from {}: {}", self.config.private_key_path, e))?
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to read token from {}: {}",
+                        self.config.private_key_path,
+                        e
+                    )
+                })?
                 .trim()
                 .to_string();
             if token.is_empty() {
-                return Err(anyhow::anyhow!("Token file is empty: {}", self.config.private_key_path));
+                return Err(anyhow::anyhow!(
+                    "Token file is empty: {}",
+                    self.config.private_key_path
+                ));
             }
             Ok(token)
         }
@@ -264,9 +275,13 @@ pub async fn webhook_handler(
         }
     };
 
-    info!("Received GitHub webhook: {} for {}", payload.action, payload.repository.full_name);
+    info!(
+        "Received GitHub webhook: {} for {}",
+        payload.action, payload.repository.full_name
+    );
 
-    if payload.action != "opened" && payload.action != "synchronize" && payload.action != "reopened" {
+    if payload.action != "opened" && payload.action != "synchronize" && payload.action != "reopened"
+    {
         return StatusCode::OK;
     }
 
@@ -279,7 +294,10 @@ pub async fn webhook_handler(
     };
 
     // Use the head repo's clone URL if available (for cross-repo PRs), otherwise default
-    let repo_url = pr.head.repo.as_ref()
+    let repo_url = pr
+        .head
+        .repo
+        .as_ref()
         .map(|r| r.clone_url.clone())
         .unwrap_or_else(|| payload.repository.clone_url.clone());
 
@@ -331,18 +349,17 @@ pub async fn webhook_handler(
 
         if use_batching {
             let batch_key = format!("{}:{}", repo_name, pr_number);
-            let commit = CommitRange { base: base.clone(), head: head.clone() };
-            
-            let new_batch = engine.add_to_batch(
-                &batch_key,
-                &repo_url,
-                commit,
-            ).await;
+            let commit = CommitRange {
+                base: base.clone(),
+                head: head.clone(),
+            };
+
+            let new_batch = engine.add_to_batch(&batch_key, &repo_url, commit).await;
 
             if new_batch.is_some() {
                 // First commit in batch, wait for timeout or more commits
                 tokio::time::sleep(batch_timeout).await;
-                
+
                 if let Some(batch) = engine.get_batch(&batch_key).await {
                     let db = state.database.clone();
                     process_batch_review(
@@ -356,7 +373,8 @@ pub async fn webhook_handler(
                         Some(&db),
                         &metrics,
                         review_start,
-                    ).await;
+                    )
+                    .await;
                 }
             }
         } else {
@@ -416,7 +434,9 @@ pub async fn webhook_handler(
                             &cached_review,
                             &config,
                             Some(&db),
-                        ).await {
+                        )
+                        .await
+                        {
                             error!("Failed to post cached review: {}", e);
                             metrics.record_review_failed();
                         } else {
@@ -467,7 +487,9 @@ pub async fn webhook_handler(
                 &review,
                 &config,
                 Some(&db),
-            ).await {
+            )
+            .await
+            {
                 error!("Failed to post GitHub review: {}", e);
                 metrics.record_review_failed();
             } else {
@@ -494,13 +516,12 @@ async fn process_batch_review(
 ) {
     info!(
         "Processing batch review for {}/{} with {} commits",
-        repo_name, pr_number, batch.commits.len()
+        repo_name,
+        pr_number,
+        batch.commits.len()
     );
 
-    let diff = match engine.clone_and_diff_batch(
-        &batch.repo_url,
-        &batch.commits,
-    ) {
+    let diff = match engine.clone_and_diff_batch(&batch.repo_url, &batch.commits) {
         Ok(d) => d,
         Err(e) => {
             error!("Failed to generate batch diff: {}", e);
@@ -554,24 +575,35 @@ pub async fn post_review(
 
     if let Some(db) = database {
         let verdict = format!("{:?}", review.verdict);
-        let critical_count = review.inline_comments.iter()
-            .filter(|c| matches!(c.severity, SeverityLevel::Critical)).count() as i64;
-        let warning_count = review.inline_comments.iter()
-            .filter(|c| matches!(c.severity, SeverityLevel::Warning)).count() as i64;
-        let info_count = review.inline_comments.iter()
-            .filter(|c| matches!(c.severity, SeverityLevel::Info)).count() as i64;
-        let _ = db.save_review(
-            repo,
-            pr_number as i64,
-            "github",
-            head_sha,
-            &verdict,
-            &review.summary,
-            review.inline_comments.len() as i64,
-            critical_count,
-            warning_count,
-            info_count,
-        ).await;
+        let critical_count = review
+            .inline_comments
+            .iter()
+            .filter(|c| matches!(c.severity, SeverityLevel::Critical))
+            .count() as i64;
+        let warning_count = review
+            .inline_comments
+            .iter()
+            .filter(|c| matches!(c.severity, SeverityLevel::Warning))
+            .count() as i64;
+        let info_count = review
+            .inline_comments
+            .iter()
+            .filter(|c| matches!(c.severity, SeverityLevel::Info))
+            .count() as i64;
+        let _ = db
+            .save_review(
+                repo,
+                pr_number as i64,
+                "github",
+                head_sha,
+                &verdict,
+                &review.summary,
+                review.inline_comments.len() as i64,
+                critical_count,
+                warning_count,
+                info_count,
+            )
+            .await;
     }
 
     Ok(())
@@ -596,18 +628,22 @@ async fn post_pull_request_review(
         ReviewVerdict::Comment => "COMMENT",
     };
 
-    let comments: Vec<GitHubReviewComment> = review.inline_comments.iter().map(|c| {
-        let severity_label = ReviewParser::format_severity_label(&c.severity);
-        GitHubReviewComment {
-            body: format!("{} {}", severity_label, c.body),
-            path: c.file_path.clone(),
-            line: c.line,
-            side: "RIGHT".to_string(),
-        }
-    }).collect();
+    let comments: Vec<GitHubReviewComment> = review
+        .inline_comments
+        .iter()
+        .map(|c| {
+            let severity_label = ReviewParser::format_severity_label(&c.severity);
+            GitHubReviewComment {
+                body: format!("{} {}", severity_label, c.body),
+                path: c.file_path.clone(),
+                line: c.line,
+                side: "RIGHT".to_string(),
+            }
+        })
+        .collect();
 
     let review_request = GitHubPullRequestReview {
-        body: format!("\u{1f988} **SentryShark Code Review**\n\n{}", review.summary),
+        body: format!("\u{1f99e} **SentryClaw Code Review**\n\n{}", review.summary),
         event: event.to_string(),
         comments,
     };
@@ -616,7 +652,7 @@ async fn post_pull_request_review(
         .post(&url)
         .header("Authorization", format!("Bearer {}", token))
         .header("Accept", "application/vnd.github.v3+json")
-        .header("User-Agent", "SentryShark")
+        .header("User-Agent", "SentryClaw")
         .json(&review_request)
         .send()
         .await?;
@@ -624,10 +660,17 @@ async fn post_pull_request_review(
     if !response.status().is_success() {
         let status = response.status();
         let text = response.text().await.unwrap_or_default();
-        return Err(anyhow::anyhow!("GitHub PR review API error {}: {}", status, text));
+        return Err(anyhow::anyhow!(
+            "GitHub PR review API error {}: {}",
+            status,
+            text
+        ));
     }
 
-    info!("Posted PR review to {}/pulls/{} with verdict {:?}", repo, pr_number, review.verdict);
+    info!(
+        "Posted PR review to {}/pulls/{} with verdict {:?}",
+        repo, pr_number, review.verdict
+    );
     Ok(())
 }
 
@@ -651,7 +694,7 @@ async fn post_issue_comment(
         .post(&url)
         .header("Authorization", format!("Bearer {}", token))
         .header("Accept", "application/vnd.github.v3+json")
-        .header("User-Agent", "SentryShark")
+        .header("User-Agent", "SentryClaw")
         .json(&comment)
         .send()
         .await?;
@@ -674,10 +717,8 @@ pub fn format_summary_body(review: &crate::inline_comments::StructuredReview) ->
     };
 
     let mut body = format!(
-        "\u{1f988} **SentryShark Code Review**\n\n{} **Verdict:** {:?}\n\n{}",
-        verdict_emoji,
-        review.verdict,
-        review.summary
+        "\u{1f99e} **SentryClaw Code Review**\n\n{} **Verdict:** {:?}\n\n{}",
+        verdict_emoji, review.verdict, review.summary
     );
 
     if !review.inline_comments.is_empty() {
@@ -709,7 +750,8 @@ pub async fn post_review_comment(
         let auth = GitHubAuth::new(config.clone());
         let token = auth.get_token().await?;
         post_issue_comment(repo, pr_number, body, &token).await
-    }).await
+    })
+    .await
 }
 
 #[cfg(test)]
@@ -721,7 +763,7 @@ mod tests {
     fn test_verify_github_signature() {
         let secret = "mysecret";
         let body = Bytes::from_static(b"test payload");
-        
+
         // Compute correct signature
         let mut mac = match HmacSha256::new_from_slice(secret.as_bytes()) {
             Ok(m) => m,
@@ -742,14 +784,12 @@ mod tests {
         let review = StructuredReview {
             verdict: ReviewVerdict::Approve,
             summary: "Looks good!".to_string(),
-            inline_comments: vec![
-                InlineComment {
-                    file_path: "src/main.rs".to_string(),
-                    line: 42,
-                    body: "Consider error handling".to_string(),
-                    severity: SeverityLevel::Warning,
-                }
-            ],
+            inline_comments: vec![InlineComment {
+                file_path: "src/main.rs".to_string(),
+                line: 42,
+                body: "Consider error handling".to_string(),
+                severity: SeverityLevel::Warning,
+            }],
         };
 
         let body = format_summary_body(&review);

@@ -1,6 +1,6 @@
 # Kubernetes Configuration Example
 
-This example provides Kubernetes manifests for deploying SentryShark.
+This example provides Kubernetes manifests for deploying SentryClaw.
 
 ## Namespace
 
@@ -8,7 +8,7 @@ This example provides Kubernetes manifests for deploying SentryShark.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: sentryshark
+  name: sentryclaw
 ```
 
 ## ConfigMap
@@ -17,8 +17,8 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: sentryshark-config
-  namespace: sentryshark
+  name: sentryclaw-config
+  namespace: sentryclaw
 data:
   config.toml: |
     [server]
@@ -28,7 +28,7 @@ data:
     [github]
     webhook_secret = "${GITHUB_WEBHOOK_SECRET}"
     app_id = "${GITHUB_APP_ID}"
-    private_key_path = "/etc/sentryshark/github-private-key.pem"
+    private_key_path = "/etc/sentryclaw/github-private-key.pem"
     use_app_auth = true
     installation_id = ${GITHUB_INSTALLATION_ID}
 
@@ -40,7 +40,7 @@ data:
     temperature = 0.1
 
     [database]
-    path = "/data/sentryshark.db"
+    path = "/data/sentryclaw.db"
 
     [dashboard]
     enabled = true
@@ -52,8 +52,8 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: sentryshark-secrets
-  namespace: sentryshark
+  name: sentryclaw-secrets
+  namespace: sentryclaw
 type: Opaque
 stringData:
   GITHUB_WEBHOOK_SECRET: "your-webhook-secret"
@@ -67,23 +67,23 @@ stringData:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sentryshark
-  namespace: sentryshark
+  name: sentryclaw
+  namespace: sentryclaw
   labels:
-    app: sentryshark
+    app: sentryclaw
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sentryshark
+      app: sentryclaw
   template:
     metadata:
       labels:
-        app: sentryshark
+        app: sentryclaw
     spec:
       containers:
-        - name: sentryshark
-          image: ghcr.io/synthalorian/sentryshark:latest
+        - name: sentryclaw
+          image: ghcr.io/synthalorian/sentryclaw:latest
           ports:
             - containerPort: 3000
               name: http
@@ -95,7 +95,7 @@ spec:
             - name: GITHUB_WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: sentryshark-secrets
+                  name: sentryclaw-secrets
                   key: GITHUB_WEBHOOK_SECRET
           volumeMounts:
             - name: config
@@ -104,7 +104,7 @@ spec:
             - name: data
               mountPath: /data
             - name: github-key
-              mountPath: /etc/sentryshark
+              mountPath: /etc/sentryclaw
               readOnly: true
           resources:
             requests:
@@ -128,13 +128,13 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: sentryshark-config
+            name: sentryclaw-config
         - name: data
           persistentVolumeClaim:
-            claimName: sentryshark-data
+            claimName: sentryclaw-data
         - name: github-key
           secret:
-            secretName: sentryshark-github-key
+            secretName: sentryclaw-github-key
             items:
               - key: private-key.pem
                 path: github-private-key.pem
@@ -146,11 +146,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: sentryshark
-  namespace: sentryshark
+  name: sentryclaw
+  namespace: sentryclaw
 spec:
   selector:
-    app: sentryshark
+    app: sentryclaw
   ports:
     - protocol: TCP
       port: 80
@@ -164,8 +164,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: sentryshark-data
-  namespace: sentryshark
+  name: sentryclaw-data
+  namespace: sentryclaw
 spec:
   accessModes:
     - ReadWriteOnce
@@ -180,13 +180,13 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: sentryshark
-  namespace: sentryshark
+  name: sentryclaw
+  namespace: sentryclaw
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: sentryshark
+    name: sentryclaw
   minReplicas: 1
   maxReplicas: 3
   metrics:
@@ -204,24 +204,24 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: sentryshark
-  namespace: sentryshark
+  name: sentryclaw
+  namespace: sentryclaw
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   tls:
     - hosts:
-        - sentryshark.example.com
-      secretName: sentryshark-tls
+        - sentryclaw.example.com
+      secretName: sentryclaw-tls
   rules:
-    - host: sentryshark.example.com
+    - host: sentryclaw.example.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: sentryshark
+                name: sentryclaw
                 port:
                   number: 80
 ```
@@ -240,6 +240,6 @@ kubectl apply -f hpa.yaml
 kubectl apply -f ingress.yaml
 
 # Check status
-kubectl get pods -n sentryshark
-kubectl logs -f deployment/sentryshark -n sentryshark
+kubectl get pods -n sentryclaw
+kubectl logs -f deployment/sentryclaw -n sentryclaw
 ```

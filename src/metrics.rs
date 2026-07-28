@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-/// Prometheus-compatible metrics for SentryShark.
+/// Prometheus-compatible metrics for SentryClaw.
 #[derive(Debug)]
 pub struct Metrics {
     reviews_total: AtomicU64,
@@ -140,7 +140,8 @@ impl Metrics {
     }
 
     pub fn record_severity_counts(&self, critical: u64, warning: u64, info: u64) {
-        self.critical_findings.fetch_add(critical, Ordering::Relaxed);
+        self.critical_findings
+            .fetch_add(critical, Ordering::Relaxed);
         self.warning_findings.fetch_add(warning, Ordering::Relaxed);
         self.info_findings.fetch_add(info, Ordering::Relaxed);
     }
@@ -159,147 +160,156 @@ impl Metrics {
     pub async fn render_prometheus(&self) -> String {
         let mut output = String::new();
 
-        output.push_str("# HELP sentryshark_reviews_total Total number of code reviews performed.\n");
-        output.push_str("# TYPE sentryshark_reviews_total counter\n");
+        output
+            .push_str("# HELP sentryclaw_reviews_total Total number of code reviews performed.\n");
+        output.push_str("# TYPE sentryclaw_reviews_total counter\n");
         output.push_str(&format!(
-            "sentryshark_reviews_total {}\n",
+            "sentryclaw_reviews_total {}\n",
             self.reviews_total.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_reviews_approved Total number of approved reviews.\n");
-        output.push_str("# TYPE sentryshark_reviews_approved counter\n");
+        output.push_str("# HELP sentryclaw_reviews_approved Total number of approved reviews.\n");
+        output.push_str("# TYPE sentryclaw_reviews_approved counter\n");
         output.push_str(&format!(
-            "sentryshark_reviews_approved {}\n",
+            "sentryclaw_reviews_approved {}\n",
             self.reviews_approved.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_reviews_request_changes Total number of reviews requesting changes.\n");
-        output.push_str("# TYPE sentryshark_reviews_request_changes counter\n");
+        output.push_str("# HELP sentryclaw_reviews_request_changes Total number of reviews requesting changes.\n");
+        output.push_str("# TYPE sentryclaw_reviews_request_changes counter\n");
         output.push_str(&format!(
-            "sentryshark_reviews_request_changes {}\n",
+            "sentryclaw_reviews_request_changes {}\n",
             self.reviews_request_changes.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_reviews_commented Total number of comment-only reviews.\n");
-        output.push_str("# TYPE sentryshark_reviews_commented counter\n");
+        output.push_str(
+            "# HELP sentryclaw_reviews_commented Total number of comment-only reviews.\n",
+        );
+        output.push_str("# TYPE sentryclaw_reviews_commented counter\n");
         output.push_str(&format!(
-            "sentryshark_reviews_commented {}\n",
+            "sentryclaw_reviews_commented {}\n",
             self.reviews_commented.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_reviews_failed Total number of failed reviews.\n");
-        output.push_str("# TYPE sentryshark_reviews_failed counter\n");
+        output.push_str("# HELP sentryclaw_reviews_failed Total number of failed reviews.\n");
+        output.push_str("# TYPE sentryclaw_reviews_failed counter\n");
         output.push_str(&format!(
-            "sentryshark_reviews_failed {}\n",
+            "sentryclaw_reviews_failed {}\n",
             self.reviews_failed.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_reviews_auto_approved Total number of auto-approved reviews.\n");
-        output.push_str("# TYPE sentryshark_reviews_auto_approved counter\n");
+        output.push_str(
+            "# HELP sentryclaw_reviews_auto_approved Total number of auto-approved reviews.\n",
+        );
+        output.push_str("# TYPE sentryclaw_reviews_auto_approved counter\n");
         output.push_str(&format!(
-            "sentryshark_reviews_auto_approved {}\n",
+            "sentryclaw_reviews_auto_approved {}\n",
             self.reviews_auto_approved.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_review_latency_ms Average review latency in milliseconds.\n");
-        output.push_str("# TYPE sentryshark_review_latency_ms gauge\n");
+        output.push_str(
+            "# HELP sentryclaw_review_latency_ms Average review latency in milliseconds.\n",
+        );
+        output.push_str("# TYPE sentryclaw_review_latency_ms gauge\n");
         output.push_str(&format!(
-            "sentryshark_review_latency_ms {:.2}\n",
+            "sentryclaw_review_latency_ms {:.2}\n",
             self.avg_latency_ms()
         ));
 
-        output.push_str("# HELP sentryshark_webhooks_received Total webhooks received.\n");
-        output.push_str("# TYPE sentryshark_webhooks_received counter\n");
+        output.push_str("# HELP sentryclaw_webhooks_received Total webhooks received.\n");
+        output.push_str("# TYPE sentryclaw_webhooks_received counter\n");
         output.push_str(&format!(
-            "sentryshark_webhooks_received {}\n",
+            "sentryclaw_webhooks_received {}\n",
             self.webhooks_received.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_webhooks_rejected Total webhooks rejected (auth failure).\n");
-        output.push_str("# TYPE sentryshark_webhooks_rejected counter\n");
+        output.push_str(
+            "# HELP sentryclaw_webhooks_rejected Total webhooks rejected (auth failure).\n",
+        );
+        output.push_str("# TYPE sentryclaw_webhooks_rejected counter\n");
         output.push_str(&format!(
-            "sentryshark_webhooks_rejected {}\n",
+            "sentryclaw_webhooks_rejected {}\n",
             self.webhooks_rejected.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_webhooks_rate_limited Total webhooks rate limited.\n");
-        output.push_str("# TYPE sentryshark_webhooks_rate_limited counter\n");
+        output.push_str("# HELP sentryclaw_webhooks_rate_limited Total webhooks rate limited.\n");
+        output.push_str("# TYPE sentryclaw_webhooks_rate_limited counter\n");
         output.push_str(&format!(
-            "sentryshark_webhooks_rate_limited {}\n",
+            "sentryclaw_webhooks_rate_limited {}\n",
             self.webhooks_rate_limited.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_cache_hits Total cache hits.\n");
-        output.push_str("# TYPE sentryshark_cache_hits counter\n");
+        output.push_str("# HELP sentryclaw_cache_hits Total cache hits.\n");
+        output.push_str("# TYPE sentryclaw_cache_hits counter\n");
         output.push_str(&format!(
-            "sentryshark_cache_hits {}\n",
+            "sentryclaw_cache_hits {}\n",
             self.cache_hits.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_cache_misses Total cache misses.\n");
-        output.push_str("# TYPE sentryshark_cache_misses counter\n");
+        output.push_str("# HELP sentryclaw_cache_misses Total cache misses.\n");
+        output.push_str("# TYPE sentryclaw_cache_misses counter\n");
         output.push_str(&format!(
-            "sentryshark_cache_misses {}\n",
+            "sentryclaw_cache_misses {}\n",
             self.cache_misses.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_jobs_submitted Total jobs submitted.\n");
-        output.push_str("# TYPE sentryshark_jobs_submitted counter\n");
+        output.push_str("# HELP sentryclaw_jobs_submitted Total jobs submitted.\n");
+        output.push_str("# TYPE sentryclaw_jobs_submitted counter\n");
         output.push_str(&format!(
-            "sentryshark_jobs_submitted {}\n",
+            "sentryclaw_jobs_submitted {}\n",
             self.jobs_submitted.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_jobs_started Total jobs started.\n");
-        output.push_str("# TYPE sentryshark_jobs_started counter\n");
+        output.push_str("# HELP sentryclaw_jobs_started Total jobs started.\n");
+        output.push_str("# TYPE sentryclaw_jobs_started counter\n");
         output.push_str(&format!(
-            "sentryshark_jobs_started {}\n",
+            "sentryclaw_jobs_started {}\n",
             self.jobs_started.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_jobs_completed Total jobs completed.\n");
-        output.push_str("# TYPE sentryshark_jobs_completed counter\n");
+        output.push_str("# HELP sentryclaw_jobs_completed Total jobs completed.\n");
+        output.push_str("# TYPE sentryclaw_jobs_completed counter\n");
         output.push_str(&format!(
-            "sentryshark_jobs_completed {}\n",
+            "sentryclaw_jobs_completed {}\n",
             self.jobs_completed.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_jobs_failed Total jobs failed.\n");
-        output.push_str("# TYPE sentryshark_jobs_failed counter\n");
+        output.push_str("# HELP sentryclaw_jobs_failed Total jobs failed.\n");
+        output.push_str("# TYPE sentryclaw_jobs_failed counter\n");
         output.push_str(&format!(
-            "sentryshark_jobs_failed {}\n",
+            "sentryclaw_jobs_failed {}\n",
             self.jobs_failed.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_critical_findings Total critical severity findings.\n");
-        output.push_str("# TYPE sentryshark_critical_findings counter\n");
+        output.push_str("# HELP sentryclaw_critical_findings Total critical severity findings.\n");
+        output.push_str("# TYPE sentryclaw_critical_findings counter\n");
         output.push_str(&format!(
-            "sentryshark_critical_findings {}\n",
+            "sentryclaw_critical_findings {}\n",
             self.critical_findings.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_warning_findings Total warning severity findings.\n");
-        output.push_str("# TYPE sentryshark_warning_findings counter\n");
+        output.push_str("# HELP sentryclaw_warning_findings Total warning severity findings.\n");
+        output.push_str("# TYPE sentryclaw_warning_findings counter\n");
         output.push_str(&format!(
-            "sentryshark_warning_findings {}\n",
+            "sentryclaw_warning_findings {}\n",
             self.warning_findings.load(Ordering::Relaxed)
         ));
 
-        output.push_str("# HELP sentryshark_info_findings Total info severity findings.\n");
-        output.push_str("# TYPE sentryshark_info_findings counter\n");
+        output.push_str("# HELP sentryclaw_info_findings Total info severity findings.\n");
+        output.push_str("# TYPE sentryclaw_info_findings counter\n");
         output.push_str(&format!(
-            "sentryshark_info_findings {}\n",
+            "sentryclaw_info_findings {}\n",
             self.info_findings.load(Ordering::Relaxed)
         ));
 
         if let Ok(repo_stats) = self.per_repo_stats.lock() {
             if !repo_stats.is_empty() {
-                output.push_str("# HELP sentryshark_repo_reviews Total reviews per repository.\n");
-                output.push_str("# TYPE sentryshark_repo_reviews counter\n");
+                output.push_str("# HELP sentryclaw_repo_reviews Total reviews per repository.\n");
+                output.push_str("# TYPE sentryclaw_repo_reviews counter\n");
                 for (repo, stats) in repo_stats.iter() {
                     let repo_escaped = repo.replace('\\', "\\\\").replace('"', "\\\"");
                     output.push_str(&format!(
-                        "sentryshark_repo_reviews{{repo=\"{}\"}} {}\n",
+                        "sentryclaw_repo_reviews{{repo=\"{}\"}} {}\n",
                         repo_escaped, stats.reviews
                     ));
                 }
@@ -404,11 +414,11 @@ mod tests {
         metrics.record_review("Approve", "test/repo", None);
 
         let output = metrics.render_prometheus().await;
-        assert!(output.contains("sentryshark_reviews_total 1"));
-        assert!(output.contains("sentryshark_reviews_approved 1"));
-        assert!(output.contains("# TYPE sentryshark_reviews_total counter"));
-        assert!(output.contains("sentryshark_cache_hits"));
-        assert!(output.contains("sentryshark_critical_findings"));
+        assert!(output.contains("sentryclaw_reviews_total 1"));
+        assert!(output.contains("sentryclaw_reviews_approved 1"));
+        assert!(output.contains("# TYPE sentryclaw_reviews_total counter"));
+        assert!(output.contains("sentryclaw_cache_hits"));
+        assert!(output.contains("sentryclaw_critical_findings"));
     }
 
     #[test]

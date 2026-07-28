@@ -49,11 +49,7 @@ where
         match operation().await {
             Ok(result) => {
                 if attempt > 0 {
-                    debug!(
-                        "{} succeeded after {} retries",
-                        operation_name,
-                        attempt
-                    );
+                    debug!("{} succeeded after {} retries", operation_name, attempt);
                 }
                 return Ok(result);
             }
@@ -112,10 +108,8 @@ mod tests {
     #[tokio::test]
     async fn test_retry_success_first_attempt() {
         let config = RetryConfig::default();
-        let result: anyhow::Result<i32> = retry_with_backoff(&config, "test", || async {
-            Ok(42)
-        })
-        .await;
+        let result: anyhow::Result<i32> =
+            retry_with_backoff(&config, "test", || async { Ok(42) }).await;
 
         assert_eq!(result.unwrap(), 42);
     }

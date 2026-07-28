@@ -122,14 +122,10 @@ impl ReviewQueue {
                         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
                         continue;
                     }
-                    match tokio::time::timeout(
-                        tokio::time::Duration::from_secs(1),
-                        rx.recv(),
-                    )
-                    .await
+                    match tokio::time::timeout(tokio::time::Duration::from_secs(1), rx.recv()).await
                     {
                         Ok(Some(job)) => Some(job),
-                        Ok(None) => break, // Channel closed
+                        Ok(None) => break,  // Channel closed
                         Err(_) => continue, // Timeout
                     }
                 };
@@ -167,9 +163,7 @@ impl ReviewQueue {
 
                 tokio::spawn(async move {
                     metrics_worker.record_job_started();
-                    let _ = db_worker
-                        .update_job_status(job.id, "running", None)
-                        .await;
+                    let _ = db_worker.update_job_status(job.id, "running", None).await;
 
                     // The actual review processing is done by a callback from the caller
                     // We just manage the queue lifecycle here
@@ -237,9 +231,10 @@ impl ReviewQueue {
             )
             .await?;
         self.metrics.record_job_submitted();
-        self.tx.send(payload).await.map_err(|e| {
-            anyhow::anyhow!("Failed to submit job to queue: {}", e)
-        })?;
+        self.tx
+            .send(payload)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to submit job to queue: {}", e))?;
         Ok(())
     }
 

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tracing::{info, debug, instrument};
+use tracing::{debug, info, instrument};
 
 use crate::config::ReviewConfig;
 use crate::inline_comments::{ReviewParser, StructuredReview};
@@ -77,9 +77,7 @@ impl LlmClient {
     }
 
     #[instrument(skip(self, diff), fields(model = %self.model))]
-    pub async fn review_code(&self,
-        diff: &str,
-    ) -> anyhow::Result<StructuredReview> {
+    pub async fn review_code(&self, diff: &str) -> anyhow::Result<StructuredReview> {
         let prompt = self.build_prompt(diff);
         debug!("LLM prompt length: {} chars", prompt.len());
 
@@ -93,17 +91,22 @@ impl LlmClient {
             temperature: self.temperature,
         };
 
-        info!("Sending review request to LLM at {}/v1/chat/completions", self.base_url);
+        info!(
+            "Sending review request to LLM at {}/v1/chat/completions",
+            self.base_url
+        );
 
-        let response = self.client
+        let response = self
+            .client
             .post(format!("{}/v1/chat/completions", self.base_url))
             .json(&request)
             .send()
             .await?;
 
         let chat_response: ChatResponse = response.json().await?;
-        
-        let content = chat_response.choices
+
+        let content = chat_response
+            .choices
             .into_iter()
             .next()
             .map(|c| c.message.content)
@@ -123,16 +126,16 @@ impl LlmClient {
 
     pub fn build_prompt(&self, diff: &str) -> String {
         let mut prompt = String::new();
-        
+
         prompt.push_str("You are a senior code reviewer. Review the following diff and provide structured feedback.\n\n");
-        
+
         // Add template-specific guidelines
         let template_prompt = TemplateEngine::prompt_additions(&self.template);
         if !template_prompt.is_empty() {
             prompt.push_str(&template_prompt);
             prompt.push('\n');
         }
-        
+
         // Add custom rules
         if let Some(ref engine) = self.rule_engine {
             let rules_prompt = engine.format_rules_for_prompt();
@@ -141,7 +144,7 @@ impl LlmClient {
                 prompt.push('\n');
             }
         }
-        
+
         // Add enabled review rules
         prompt.push_str("Focus areas:\n");
         if self.review_config.correctness {
@@ -157,17 +160,19 @@ impl LlmClient {
             prompt.push_str("- Style: Code readability, naming, consistency, formatting\n");
         }
         if self.review_config.maintainability {
-            prompt.push_str("- Maintainability: Complexity, test coverage, documentation, modularity\n");
+            prompt.push_str(
+                "- Maintainability: Complexity, test coverage, documentation, modularity\n",
+            );
         }
-        
+
         prompt.push('\n');
-        
+
         // Request structured output
         prompt.push_str("Please provide your review in the following format:\n\n");
         prompt.push_str("VERDICT: [APPROVE | COMMENT | REQUEST_CHANGES]\n\n");
         prompt.push_str("SUMMARY:\n");
         prompt.push_str("[2-3 sentences summarizing the overall assessment]\n\n");
-        
+
         if self.review_config.inline_comments {
             prompt.push_str("For each issue found, include an inline comment:\n\n");
             prompt.push_str("FILE: [file path]\n");
@@ -176,17 +181,15 @@ impl LlmClient {
             prompt.push_str("COMMENT: [specific, actionable feedback]\n\n");
             prompt.push_str("Include only inline comments for actual issues - skip praise or minor suggestions.\n\n");
         }
-        
+
         prompt.push_str("Diff:\n```diff\n");
         prompt.push_str(diff);
         prompt.push_str("\n```");
-        
+
         prompt
     }
 
-    pub async fn review_code_simple(&self,
-        diff: &str,
-    ) -> anyhow::Result<String> {
+    pub async fn review_code_simple(&self, diff: &str) -> anyhow::Result<String> {
         let structured = self.review_code(diff).await?;
         Ok(ReviewParser::format_simple_review(&structured))
     }
@@ -218,7 +221,7 @@ mod tests {
         );
 
         let prompt = client.build_prompt("diff test");
-        
+
         assert!(prompt.contains("Correctness"));
         assert!(prompt.contains("Security"));
         assert!(prompt.contains("Performance"));
@@ -249,7 +252,8 @@ mod tests {
             100,
             0.1,
             config,
-        ).with_template(ProjectTemplate::Rust);
+        )
+        .with_template(ProjectTemplate::Rust);
 
         let prompt = client.build_prompt("diff test");
         assert!(prompt.contains("unwrap()"));
@@ -270,15 +274,13 @@ mod tests {
         };
 
         let mut rule_engine = RuleEngine::new();
-        rule_engine.add_rules(vec![
-            crate::rule_engine::ReviewRule {
-                name: "no_panic".to_string(),
-                description: "Avoid panic".to_string(),
-                pattern: r"panic!".to_string(),
-                severity: crate::rule_engine::SeverityLevel::Critical,
-                message: "Don't panic".to_string(),
-            },
-        ]);
+        rule_engine.add_rules(vec![crate::rule_engine::ReviewRule {
+            name: "no_panic".to_string(),
+            description: "Avoid panic".to_string(),
+            pattern: r"panic!".to_string(),
+            severity: crate::rule_engine::SeverityLevel::Critical,
+            message: "Don't panic".to_string(),
+        }]);
 
         let client = LlmClient::new(
             "http://localhost:8080".to_string(),
@@ -286,7 +288,8 @@ mod tests {
             100,
             0.1,
             config,
-        ).with_rule_engine(rule_engine);
+        )
+        .with_rule_engine(rule_engine);
 
         let prompt = client.build_prompt("diff test");
         assert!(prompt.contains("no_panic"));
@@ -315,7 +318,7 @@ mod tests {
         );
 
         let prompt = client.build_prompt("diff test");
-        
+
         assert!(!prompt.contains("FILE:"));
         assert!(!prompt.contains("LINE:"));
         assert!(prompt.contains("VERDICT:"));

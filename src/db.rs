@@ -211,53 +211,65 @@ impl Database {
     pub async fn get_stats(&self) -> anyhow::Result<ReviewStats> {
         let conn = self.conn.lock().await;
 
-        let total_reviews: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM reviews",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let total_reviews: i64 = conn
+            .query_row("SELECT COUNT(*) FROM reviews", [], |row| row.get(0))
+            .unwrap_or(0);
 
-        let approved: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM reviews WHERE verdict = 'Approve'",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let approved: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM reviews WHERE verdict = 'Approve'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
-        let request_changes: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM reviews WHERE verdict = 'RequestChanges'",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let request_changes: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM reviews WHERE verdict = 'RequestChanges'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
-        let commented: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM reviews WHERE verdict = 'Comment'",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let commented: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM reviews WHERE verdict = 'Comment'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
-        let avg_inline: f64 = conn.query_row(
-            "SELECT COALESCE(AVG(inline_count), 0.0) FROM reviews",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0.0);
+        let avg_inline: f64 = conn
+            .query_row(
+                "SELECT COALESCE(AVG(inline_count), 0.0) FROM reviews",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0.0);
 
-        let critical_count: i64 = conn.query_row(
-            "SELECT COALESCE(SUM(critical_count), 0) FROM reviews",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let critical_count: i64 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(critical_count), 0) FROM reviews",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
-        let warning_count: i64 = conn.query_row(
-            "SELECT COALESCE(SUM(warning_count), 0) FROM reviews",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let warning_count: i64 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(warning_count), 0) FROM reviews",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
-        let info_count: i64 = conn.query_row(
-            "SELECT COALESCE(SUM(info_count), 0) FROM reviews",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let info_count: i64 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(info_count), 0) FROM reviews",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
         Ok(ReviewStats {
             total_reviews,
@@ -352,10 +364,7 @@ impl Database {
         );
 
         params_vec.push(Box::new(filters.limit));
-        let params: Vec<&dyn rusqlite::ToSql> = params_vec
-            .iter()
-            .map(|p| p.as_ref())
-            .collect();
+        let params: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
 
         let mut stmt = conn.prepare(&sql)?;
         let reviews = stmt.query_map(params.as_slice(), |row| {
@@ -558,18 +567,21 @@ mod tests {
     async fn test_database_operations() {
         let db = Database::new(":memory:").unwrap();
 
-        let id = db.save_review(
-            "test/repo",
-            1,
-            "github",
-            "abc123",
-            "Approve",
-            "Looks good!",
-            0,
-            0,
-            0,
-            0,
-        ).await.unwrap();
+        let id = db
+            .save_review(
+                "test/repo",
+                1,
+                "github",
+                "abc123",
+                "Approve",
+                "Looks good!",
+                0,
+                0,
+                0,
+                0,
+            )
+            .await
+            .unwrap();
 
         assert_eq!(id, 1);
 
@@ -593,7 +605,9 @@ mod tests {
             1,
             1,
             1,
-        ).await.unwrap();
+        )
+        .await
+        .unwrap();
 
         let stats = db.get_stats().await.unwrap();
         assert_eq!(stats.total_reviews, 2);
@@ -605,9 +619,48 @@ mod tests {
     async fn test_search_reviews() {
         let db = Database::new(":memory:").unwrap();
 
-        db.save_review("owner/repo1", 1, "github", "sha1", "Approve", "Good", 0, 0, 0, 0).await.unwrap();
-        db.save_review("owner/repo2", 2, "github", "sha2", "Comment", "OK", 0, 0, 0, 0).await.unwrap();
-        db.save_review("owner/repo1", 3, "github", "sha3", "RequestChanges", "Bad", 0, 0, 0, 0).await.unwrap();
+        db.save_review(
+            "owner/repo1",
+            1,
+            "github",
+            "sha1",
+            "Approve",
+            "Good",
+            0,
+            0,
+            0,
+            0,
+        )
+        .await
+        .unwrap();
+        db.save_review(
+            "owner/repo2",
+            2,
+            "github",
+            "sha2",
+            "Comment",
+            "OK",
+            0,
+            0,
+            0,
+            0,
+        )
+        .await
+        .unwrap();
+        db.save_review(
+            "owner/repo1",
+            3,
+            "github",
+            "sha3",
+            "RequestChanges",
+            "Bad",
+            0,
+            0,
+            0,
+            0,
+        )
+        .await
+        .unwrap();
 
         let filters = ReviewSearchFilters {
             repo: Some("owner/repo1".to_string()),
@@ -631,7 +684,10 @@ mod tests {
     async fn test_job_persistence() {
         let db = Database::new(":memory:").unwrap();
 
-        let id = db.enqueue_job("test/repo", 1, "github", "hash123").await.unwrap();
+        let id = db
+            .enqueue_job("test/repo", 1, "github", "hash123")
+            .await
+            .unwrap();
         assert_eq!(id, 1);
 
         let pending = db.get_pending_jobs().await.unwrap();

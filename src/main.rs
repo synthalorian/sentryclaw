@@ -1,21 +1,21 @@
 use axum::{
-    routing::{post, get},
-    Router,
+    extract::ConnectInfo,
     http::StatusCode,
     response::Json,
-    extract::ConnectInfo,
+    routing::{get, post},
+    Router,
 };
+use serde::Serialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use serde::Serialize;
 use tracing::{info, instrument};
 
-use sentryshark::config::AppConfig;
-use sentryshark::db::Database;
-use sentryshark::metrics::Metrics;
-use sentryshark::rate_limit::{extract_client_key, RateLimiter};
-use sentryshark::shutdown::{wait_for_shutdown, ShutdownHandle};
-use sentryshark::AppState;
+use sentryclaw::config::AppConfig;
+use sentryclaw::db::Database;
+use sentryclaw::metrics::Metrics;
+use sentryclaw::rate_limit::{extract_client_key, RateLimiter};
+use sentryclaw::shutdown::{wait_for_shutdown, ShutdownHandle};
+use sentryclaw::AppState;
 
 #[derive(Serialize)]
 struct HealthStatus {
@@ -31,10 +31,7 @@ async fn main() -> anyhow::Result<()> {
     let logging_config = config.logging_config();
 
     if logging_config.json_format {
-        tracing_subscriber::fmt()
-            .json()
-            .with_target(true)
-            .init();
+        tracing_subscriber::fmt().json().with_target(true).init();
     } else {
         tracing_subscriber::fmt::init();
     }
@@ -62,9 +59,15 @@ async fn main() -> anyhow::Result<()> {
 
     if dashboard_enabled {
         app = app
-            .route("/dashboard", get(sentryshark::dashboard::dashboard_handler))
-            .route("/dashboard/stats", get(sentryshark::dashboard::stats_api_handler))
-            .route("/dashboard/api/search", get(sentryshark::dashboard::search_api_handler));
+            .route("/dashboard", get(sentryclaw::dashboard::dashboard_handler))
+            .route(
+                "/dashboard/stats",
+                get(sentryclaw::dashboard::stats_api_handler),
+            )
+            .route(
+                "/dashboard/api/search",
+                get(sentryclaw::dashboard::search_api_handler),
+            );
         info!("\u{1f4ca} Dashboard enabled at /dashboard");
     }
 
@@ -72,7 +75,11 @@ async fn main() -> anyhow::Result<()> {
 
     let bind_addr = format!("{}:{}", config.server.host, config.server.port);
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
-    info!("\u{1f988} SentryShark v{} listening on {}", env!("CARGO_PKG_VERSION"), listener.local_addr()?);
+    info!(
+        "\u{1f988} SentryClaw v{} listening on {}",
+        env!("CARGO_PKG_VERSION"),
+        listener.local_addr()?
+    );
 
     let shutdown_clone = shutdown.clone();
     tokio::spawn(async move {
@@ -100,7 +107,7 @@ async fn github_webhook(
         return StatusCode::TOO_MANY_REQUESTS;
     }
 
-    sentryshark::github::webhook_handler(state, headers, body).await
+    sentryclaw::github::webhook_handler(state, headers, body).await
 }
 
 #[instrument(skip(state, headers, body), fields(provider = "gitlab"))]
@@ -119,10 +126,12 @@ async fn gitlab_webhook(
         return StatusCode::TOO_MANY_REQUESTS;
     }
 
-    sentryshark::gitlab::webhook_handler(state, headers, body).await
+    sentryclaw::gitlab::webhook_handler(state, headers, body).await
 }
 
-async fn health_check(axum::extract::State(state): axum::extract::State<AppState>) -> Json<HealthStatus> {
+async fn health_check(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> Json<HealthStatus> {
     let db_status = if state.database.get_stats().await.is_ok() {
         "connected"
     } else {
@@ -143,7 +152,9 @@ async fn metrics_handler(
     let mut headers = axum::http::HeaderMap::new();
     headers.insert(
         axum::http::header::CONTENT_TYPE,
-        "text/plain; charset=utf-8".parse().expect("valid content-type header"),
+        "text/plain; charset=utf-8"
+            .parse()
+            .expect("valid content-type header"),
     );
 
     let body = state.metrics.render_prometheus().await;

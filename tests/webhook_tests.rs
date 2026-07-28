@@ -1,21 +1,24 @@
 use axum::{
     body::Body,
     http::{Request, StatusCode},
+    routing::{get, post},
     Router,
-    routing::{post, get},
 };
 use std::sync::Arc;
 use tower::util::ServiceExt;
 
-use sentryshark::config::{AppConfig, GitHubConfig, GitLabConfig, LlmConfig, ReviewConfig, DiffFilterConfig, BatchingConfig, DatabaseConfig, DashboardConfig};
-use sentryshark::db::Database;
-use sentryshark::metrics::Metrics;
-use sentryshark::rate_limit::RateLimiter;
-use sentryshark::AppState;
+use sentryclaw::config::{
+    AppConfig, BatchingConfig, DashboardConfig, DatabaseConfig, DiffFilterConfig, GitHubConfig,
+    GitLabConfig, LlmConfig, ReviewConfig,
+};
+use sentryclaw::db::Database;
+use sentryclaw::metrics::Metrics;
+use sentryclaw::rate_limit::RateLimiter;
+use sentryclaw::AppState;
 
 fn create_test_app() -> Router {
     let config = AppConfig {
-        server: sentryshark::config::ServerConfig {
+        server: sentryclaw::config::ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 3000,
         },
@@ -78,14 +81,16 @@ fn create_test_app() -> Router {
     };
 
     Router::new()
-        .route("/webhook/github", post(sentryshark::github::webhook_handler))
-        .route("/webhook/gitlab", post(sentryshark::gitlab::webhook_handler))
+        .route("/webhook/github", post(sentryclaw::github::webhook_handler))
+        .route("/webhook/gitlab", post(sentryclaw::gitlab::webhook_handler))
         .route("/health", get(|| async { StatusCode::OK }))
         .route("/metrics", get(metrics_test_handler))
         .with_state(state)
 }
 
-async fn metrics_test_handler(axum::extract::State(state): axum::extract::State<AppState>) -> String {
+async fn metrics_test_handler(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> String {
     state.metrics.render_prometheus().await
 }
 
@@ -94,7 +99,12 @@ async fn test_health_check() {
     let app = create_test_app();
 
     let response = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -106,7 +116,12 @@ async fn test_metrics_endpoint() {
     let app = create_test_app();
 
     let response = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -328,7 +343,7 @@ async fn test_gitlab_webhook_non_merge_request() {
 #[test]
 fn test_config_validation_valid() {
     let config = AppConfig {
-        server: sentryshark::config::ServerConfig {
+        server: sentryclaw::config::ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 3000,
         },
@@ -361,7 +376,7 @@ fn test_config_validation_valid() {
 #[test]
 fn test_config_validation_empty_base_url() {
     let config = AppConfig {
-        server: sentryshark::config::ServerConfig {
+        server: sentryclaw::config::ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 3000,
         },
@@ -397,7 +412,7 @@ fn test_config_validation_empty_base_url() {
 #[test]
 fn test_config_validation_no_provider() {
     let config = AppConfig {
-        server: sentryshark::config::ServerConfig {
+        server: sentryclaw::config::ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 3000,
         },
@@ -427,7 +442,7 @@ fn test_config_validation_no_provider() {
 #[test]
 fn test_config_validation_invalid_temperature() {
     let config = AppConfig {
-        server: sentryshark::config::ServerConfig {
+        server: sentryclaw::config::ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 3000,
         },

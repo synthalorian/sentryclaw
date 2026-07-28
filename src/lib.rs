@@ -17,11 +17,11 @@ pub mod rule_engine;
 pub mod shutdown;
 pub mod templates;
 
-use std::sync::Arc;
 use config::AppConfig;
 use db::Database;
 use metrics::Metrics;
 use rate_limit::RateLimiter;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AppState {
