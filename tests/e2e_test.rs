@@ -1,28 +1,28 @@
 use axum::{
     body::Body,
     http::{Request, StatusCode},
+    routing::{get, post},
     Router,
-    routing::{post, get},
 };
 use std::sync::Arc;
 use tower::util::ServiceExt;
 
-use sentryshark::config::{
-    AppConfig, GitHubConfig, GitLabConfig, LlmConfig, ReviewConfig,
-    DiffFilterConfig, BatchingConfig, DatabaseConfig, DashboardConfig,
-    AutoApproveConfig, RetryConfig, QueueConfig, CacheConfig,
+use sentryclaw::config::{
+    AppConfig, AutoApproveConfig, BatchingConfig, CacheConfig, DashboardConfig, DatabaseConfig,
+    DiffFilterConfig, GitHubConfig, GitLabConfig, LlmConfig, QueueConfig, RetryConfig,
+    ReviewConfig,
 };
-use sentryshark::db::Database;
-use sentryshark::metrics::Metrics;
-use sentryshark::rate_limit::RateLimiter;
-use sentryshark::AppState;
+use sentryclaw::db::Database;
+use sentryclaw::metrics::Metrics;
+use sentryclaw::rate_limit::RateLimiter;
+use sentryclaw::AppState;
 
 /// End-to-end integration test simulating a real GitHub webhook payload flow.
 /// This test verifies the complete webhook handling pipeline from receipt
 /// through signature verification to job queueing.
 fn create_e2e_app() -> Router {
     let config = AppConfig {
-        server: sentryshark::config::ServerConfig {
+        server: sentryclaw::config::ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 3000,
         },
@@ -74,8 +74,8 @@ fn create_e2e_app() -> Router {
         retry: Some(RetryConfig::default()),
         queue: Some(QueueConfig::default()),
         cache: Some(CacheConfig::default()),
-        rules: Some(sentryshark::config::RulesConfig::default()),
-        logging: Some(sentryshark::config::LoggingConfig::default()),
+        rules: Some(sentryclaw::config::RulesConfig::default()),
+        logging: Some(sentryclaw::config::LoggingConfig::default()),
     };
 
     let database = Arc::new(Database::new(":memory:").unwrap());
@@ -90,13 +90,19 @@ fn create_e2e_app() -> Router {
     };
 
     Router::new()
-        .route("/webhook/github", post(sentryshark::github::webhook_handler))
-        .route("/webhook/gitlab", post(sentryshark::gitlab::webhook_handler))
+        .route("/webhook/github", post(sentryclaw::github::webhook_handler))
+        .route("/webhook/gitlab", post(sentryclaw::gitlab::webhook_handler))
         .route("/health", get(health_handler))
         .route("/metrics", get(metrics_handler))
-        .route("/dashboard", get(sentryshark::dashboard::dashboard_handler))
-        .route("/dashboard/stats", get(sentryshark::dashboard::stats_api_handler))
-        .route("/dashboard/api/search", get(sentryshark::dashboard::search_api_handler))
+        .route("/dashboard", get(sentryclaw::dashboard::dashboard_handler))
+        .route(
+            "/dashboard/stats",
+            get(sentryclaw::dashboard::stats_api_handler),
+        )
+        .route(
+            "/dashboard/api/search",
+            get(sentryclaw::dashboard::search_api_handler),
+        )
         .with_state(state)
 }
 
@@ -137,10 +143,10 @@ fn real_github_pr_payload() -> String {
                 "sha": "a1b2c3d4e5f6789012345678901234567890abcd",
                 "repo": {
                     "id": 123456789,
-                    "name": "sentryshark",
-                    "full_name": "synthalorian/sentryshark",
-                    "clone_url": "https://github.com/synthalorian/sentryshark.git",
-                    "html_url": "https://github.com/synthalorian/sentryshark"
+                    "name": "sentryclaw",
+                    "full_name": "synthalorian/sentryclaw",
+                    "clone_url": "https://github.com/synthalorian/sentryclaw.git",
+                    "html_url": "https://github.com/synthalorian/sentryclaw"
                 }
             },
             "base": {
@@ -148,9 +154,9 @@ fn real_github_pr_payload() -> String {
                 "sha": "f0e1d2c3b4a59687766554433221100998877665",
                 "repo": {
                     "id": 123456789,
-                    "name": "sentryshark",
-                    "full_name": "synthalorian/sentryshark",
-                    "clone_url": "https://github.com/synthalorian/sentryshark.git"
+                    "name": "sentryclaw",
+                    "full_name": "synthalorian/sentryclaw",
+                    "clone_url": "https://github.com/synthalorian/sentryclaw.git"
                 }
             },
             "state": "open",
@@ -164,11 +170,11 @@ fn real_github_pr_payload() -> String {
         },
         "repository": {
             "id": 123456789,
-            "name": "sentryshark",
-            "full_name": "synthalorian/sentryshark",
+            "name": "sentryclaw",
+            "full_name": "synthalorian/sentryclaw",
             "private": false,
-            "clone_url": "https://github.com/synthalorian/sentryshark.git",
-            "html_url": "https://github.com/synthalorian/sentryshark",
+            "clone_url": "https://github.com/synthalorian/sentryclaw.git",
+            "html_url": "https://github.com/synthalorian/sentryclaw",
             "owner": {
                 "login": "synthalorian",
                 "id": 98765432
@@ -211,7 +217,12 @@ async fn test_e2e_health_check_detailed() {
     let app = create_e2e_app();
 
     let response = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -223,19 +234,26 @@ async fn test_e2e_metrics_endpoint_prometheus() {
     let app = create_e2e_app();
 
     let response = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let body_str = String::from_utf8(body.to_vec()).unwrap();
 
     // Verify Prometheus format
     assert!(body_str.contains("# TYPE"));
-    assert!(body_str.contains("sentryshark_reviews_total"));
-    assert!(body_str.contains("sentryshark_webhooks_received"));
+    assert!(body_str.contains("sentryclaw_reviews_total"));
+    assert!(body_str.contains("sentryclaw_webhooks_received"));
 }
 
 #[tokio::test]
@@ -243,16 +261,23 @@ async fn test_e2e_dashboard_renders() {
     let app = create_e2e_app();
 
     let response = app
-        .oneshot(Request::builder().uri("/dashboard").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/dashboard")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let body_str = String::from_utf8(body.to_vec()).unwrap();
 
-    assert!(body_str.contains("SentryShark Dashboard"));
+    assert!(body_str.contains("SentryClaw Dashboard"));
 }
 
 #[tokio::test]
@@ -260,13 +285,20 @@ async fn test_e2e_dashboard_stats_api() {
     let app = create_e2e_app();
 
     let response = app
-        .oneshot(Request::builder().uri("/dashboard/stats").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/dashboard/stats")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let body_str = String::from_utf8(body.to_vec()).unwrap();
 
     // Should return valid JSON
@@ -310,7 +342,7 @@ async fn test_e2e_github_webhook_synchronize_action() {
                 "ref": "feature/auth-middleware",
                 "sha": "b2c3d4e5f6a7890123456789012345678901bcde",
                 "repo": {
-                    "clone_url": "https://github.com/synthalorian/sentryshark.git"
+                    "clone_url": "https://github.com/synthalorian/sentryclaw.git"
                 }
             },
             "base": {
@@ -319,8 +351,8 @@ async fn test_e2e_github_webhook_synchronize_action() {
             }
         },
         "repository": {
-            "full_name": "synthalorian/sentryshark",
-            "clone_url": "https://github.com/synthalorian/sentryshark.git"
+            "full_name": "synthalorian/sentryclaw",
+            "clone_url": "https://github.com/synthalorian/sentryclaw.git"
         }
     }"#;
 
@@ -350,8 +382,8 @@ async fn test_e2e_gitlab_webhook_full_pipeline() {
         "object_kind": "merge_request",
         "project": {
             "id": 123456,
-            "path_with_namespace": "synthalorian/sentryshark",
-            "git_http_url": "https://gitlab.com/synthalorian/sentryshark.git"
+            "path_with_namespace": "synthalorian/sentryclaw",
+            "git_http_url": "https://gitlab.com/synthalorian/sentryclaw.git"
         },
         "object_attributes": {
             "iid": 42,
@@ -407,7 +439,7 @@ async fn test_e2e_invalid_github_signature_blocks_request() {
 #[tokio::test]
 async fn test_e2e_config_validation() {
     let config = AppConfig {
-        server: sentryshark::config::ServerConfig {
+        server: sentryclaw::config::ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 3000,
         },

@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  sentryshark:
+  sentryclaw:
     build: .
     ports:
       - "3000:3000"
@@ -10,8 +10,8 @@ services:
       - RUST_LOG=info
     volumes:
       - ./config.toml:/app/config.toml:ro
-      - sentryshark-data:/app/data
-      - /tmp/sentryshark-repos:/tmp
+      - sentryclaw-data:/app/data
+      - /tmp/sentryclaw-repos:/tmp
       - ./github-private-key.pem:/app/github-private-key.pem:ro
     depends_on:
       - llama
@@ -43,4 +43,4 @@ services:
       start_period: 60s
 
 volumes:
-  sentryshark-data:
+  sentryclaw-data:

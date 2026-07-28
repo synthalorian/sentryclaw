@@ -225,7 +225,9 @@ fn extract_file_path(diff_line: &str) -> Option<String> {
 fn parse_hunk_start_line(hunk_line: &str) -> Option<u32> {
     // @@ -old_start,old_count +new_start,new_count @@
     let start = hunk_line.find('+')?;
-    let end = hunk_line[start..].find(',').or_else(|| hunk_line[start..].find(' '))?;
+    let end = hunk_line[start..]
+        .find(',')
+        .or_else(|| hunk_line[start..].find(' '))?;
     let num_str = &hunk_line[start + 1..start + end];
     num_str.parse().ok()
 }
@@ -244,7 +246,10 @@ mod tests {
             "warning".parse::<SeverityLevel>().unwrap(),
             SeverityLevel::Warning
         );
-        assert_eq!("info".parse::<SeverityLevel>().unwrap(), SeverityLevel::Info);
+        assert_eq!(
+            "info".parse::<SeverityLevel>().unwrap(),
+            SeverityLevel::Info
+        );
         assert!("unknown".parse::<SeverityLevel>().is_err());
     }
 

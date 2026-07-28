@@ -1,10 +1,10 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use sentryshark::diff_filter::DiffFilter;
-use sentryshark::inline_comments::ReviewParser;
-use sentryshark::llm::LlmClient;
-use sentryshark::config::ReviewConfig;
-use sentryshark::rule_engine::{RuleEngine, ReviewRule, SeverityLevel};
-use sentryshark::auto_approve::{AutoApprover, AutoApproveConfig};
+use sentryclaw::auto_approve::{AutoApproveConfig, AutoApprover};
+use sentryclaw::config::ReviewConfig;
+use sentryclaw::diff_filter::DiffFilter;
+use sentryclaw::inline_comments::ReviewParser;
+use sentryclaw::llm::LlmClient;
+use sentryclaw::rule_engine::{ReviewRule, RuleEngine, SeverityLevel};
 
 fn benchmark_diff_filter(c: &mut Criterion) {
     let diff = r#"diff --git a/src/main.rs b/src/main.rs
@@ -154,11 +154,7 @@ fn benchmark_large_diff_filtering(c: &mut Criterion) {
         ));
     }
 
-    let filter = DiffFilter::new(
-        &["*.lock".to_string()],
-        &["dist/".to_string()],
-        true,
-    );
+    let filter = DiffFilter::new(&["*.lock".to_string()], &["dist/".to_string()], true);
 
     c.bench_function("large_diff_filter", |b| {
         b.iter(|| filter.filter_diff(black_box(&large_diff)))

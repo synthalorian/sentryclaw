@@ -23,22 +23,24 @@ impl RateLimiter {
         let cleanup_window = window;
 
         // Only spawn cleanup task if we're inside a Tokio runtime
-        let cleanup_handle: Option<tokio::task::JoinHandle<()>> = if tokio::runtime::Handle::try_current().is_ok() {
-            Some(tokio::spawn(async move {
-                let mut interval = tokio::time::interval(cleanup_window.max(Duration::from_secs(60)));
-                loop {
-                    interval.tick().await;
-                    let now = Instant::now();
-                    let mut store = store_clone.lock().await;
-                    store.retain(|_, timestamps| {
-                        timestamps.retain(|t| now.duration_since(*t) < cleanup_window);
-                        !timestamps.is_empty()
-                    });
-                }
-            }))
-        } else {
-            None
-        };
+        let cleanup_handle: Option<tokio::task::JoinHandle<()>> =
+            if tokio::runtime::Handle::try_current().is_ok() {
+                Some(tokio::spawn(async move {
+                    let mut interval =
+                        tokio::time::interval(cleanup_window.max(Duration::from_secs(60)));
+                    loop {
+                        interval.tick().await;
+                        let now = Instant::now();
+                        let mut store = store_clone.lock().await;
+                        store.retain(|_, timestamps| {
+                            timestamps.retain(|t| now.duration_since(*t) < cleanup_window);
+                            !timestamps.is_empty()
+                        });
+                    }
+                }))
+            } else {
+                None
+            };
 
         Self {
             max_requests,

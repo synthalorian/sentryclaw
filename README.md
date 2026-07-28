@@ -2,7 +2,7 @@
 
 Self-hosted AI code review for GitHub/GitLab PRs. Runs entirely on your infrastructure — no API keys, no data leaves your network.
 
-SentryShark patrols your code like an apex predator. It doesn't miss a thing.
+SentryClaw patrols your code like an apex predator. It doesn't miss a thing.
 
 ## Features
 
@@ -54,7 +54,7 @@ cargo run --release
 
 ## Configuration
 
-SentryShark uses a TOML configuration file. Set `CONFIG_PATH` environment variable to point to your config (default: `config.toml`).
+SentryClaw uses a TOML configuration file. Set `CONFIG_PATH` environment variable to point to your config (default: `config.toml`).
 
 ### Minimal Configuration
 
@@ -127,7 +127,7 @@ timeout_seconds = 30
 max_size = 10
 
 [database]
-path = "sentryshark.db"
+path = "sentryclaw.db"
 
 [dashboard]
 enabled = true
@@ -198,14 +198,14 @@ Health check endpoint. Returns server status and connectivity info.
 Prometheus-compatible metrics endpoint.
 
 **Metrics:**
-- `sentryshark_reviews_total` — Total reviews performed
-- `sentryshark_reviews_approved` — Approved reviews
-- `sentryshark_reviews_request_changes` — Reviews requesting changes
-- `sentryshark_webhooks_received` — Total webhooks received
-- `sentryshark_webhooks_rejected` — Rejected webhooks (auth failure)
-- `sentryshark_webhooks_rate_limited` — Rate-limited webhooks
-- `sentryshark_cache_hits` / `sentryshark_cache_misses` — Cache statistics
-- `sentryshark_review_latency_ms` — Average review latency
+- `sentryclaw_reviews_total` — Total reviews performed
+- `sentryclaw_reviews_approved` — Approved reviews
+- `sentryclaw_reviews_request_changes` — Reviews requesting changes
+- `sentryclaw_webhooks_received` — Total webhooks received
+- `sentryclaw_webhooks_rejected` — Rejected webhooks (auth failure)
+- `sentryclaw_webhooks_rate_limited` — Rate-limited webhooks
+- `sentryclaw_cache_hits` / `sentryclaw_cache_misses` — Cache statistics
+- `sentryclaw_review_latency_ms` — Average review latency
 
 #### `GET /dashboard`
 
@@ -241,14 +241,14 @@ Search review history.
 
 ```bash
 # Build image
-docker build -t sentryshark .
+docker build -t sentryclaw .
 
 # Run with config
 docker run -d \
   -p 3000:3000 \
   -v $(pwd)/config.toml:/app/config.toml:ro \
   -v $(pwd)/github-private-key.pem:/app/github-private-key.pem:ro \
-  sentryshark
+  sentryclaw
 ```
 
 ### Docker Compose
@@ -257,7 +257,7 @@ docker run -d \
 docker-compose up -d
 ```
 
-This starts both SentryShark and a llama.cpp sidecar. Access the dashboard at `http://localhost:3000/dashboard`.
+This starts both SentryClaw and a llama.cpp sidecar. Access the dashboard at `http://localhost:3000/dashboard`.
 
 ### Kubernetes
 
@@ -310,7 +310,7 @@ cargo build --release
 
 ## Performance
 
-SentryShark is designed for minimal resource usage:
+SentryClaw is designed for minimal resource usage:
 - ~10MB binary size
 - <50MB RAM under normal load
 - Sub-second webhook response times

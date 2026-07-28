@@ -64,7 +64,7 @@ timeout_seconds = 30
 max_size = 10
 
 [database]
-path = "sentryshark.db"
+path = "sentryclaw.db"
 
 [dashboard]
 enabled = true

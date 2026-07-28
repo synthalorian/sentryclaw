@@ -1,12 +1,12 @@
 use axum::{
-    extract::{State, Query},
+    extract::{Query, State},
     response::Html,
     Json,
 };
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
-use crate::{AppState, db::Database};
+use crate::{db::Database, AppState};
 
 #[derive(Serialize)]
 pub struct ApiStats {
@@ -41,7 +41,10 @@ pub async fn dashboard_handler(State(state): State<AppState>) -> Html<String> {
 
     match render_dashboard(&db, refresh).await {
         Ok(html) => Html(html),
-        Err(e) => Html(format!("<h1>Dashboard Error</h1><p>{}</p>", escape_html(&e.to_string()))),
+        Err(e) => Html(format!(
+            "<h1>Dashboard Error</h1><p>{}</p>",
+            escape_html(&e.to_string())
+        )),
     }
 }
 
@@ -81,8 +84,16 @@ pub async fn search_api_handler(
     let filters = crate::db::ReviewSearchFilters {
         repo: query.repo,
         verdict: query.verdict,
-        from: query.from.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
-        to: query.to.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
+        from: query.from.and_then(|s| {
+            DateTime::parse_from_rfc3339(&s)
+                .ok()
+                .map(|dt| dt.with_timezone(&Utc))
+        }),
+        to: query.to.and_then(|s| {
+            DateTime::parse_from_rfc3339(&s)
+                .ok()
+                .map(|dt| dt.with_timezone(&Utc))
+        }),
         severity: query.severity,
         limit: query.limit,
     };
@@ -113,7 +124,10 @@ async fn render_dashboard(db: &Database, refresh_seconds: u64) -> anyhow::Result
             emoji,
             review.verdict,
             review.inline_count,
-            escape_html(&review.summary).chars().take(100).collect::<String>()
+            escape_html(&review.summary)
+                .chars()
+                .take(100)
+                .collect::<String>()
         ));
     }
 
@@ -123,7 +137,7 @@ async fn render_dashboard(db: &Database, refresh_seconds: u64) -> anyhow::Result
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SentryShark Dashboard</title>
+    <title>SentryClaw Dashboard</title>
     <style>
         :root {{ --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9; --accent: #58a6ff; --success: #3fb950; --danger: #f85149; --warn: #d29922; }}
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -161,7 +175,7 @@ async fn render_dashboard(db: &Database, refresh_seconds: u64) -> anyhow::Result
 <body>
     <div class="container">
         <header>
-            <h1>🦞 SentryShark Dashboard</h1>
+            <h1>🦞 SentryClaw Dashboard</h1>
             <p>Code review analytics and history</p>
         </header>
         <div class="stats">
@@ -286,7 +300,11 @@ async fn render_dashboard(db: &Database, refresh_seconds: u64) -> anyhow::Result
         stats.critical_count,
         stats.warning_count,
         stats.info_count,
-        if rows.is_empty() { "<tr><td colspan=\"6\" class=\"empty\">No reviews yet. Start reviewing some code!</td></tr>".to_string() } else { rows },
+        if rows.is_empty() {
+            "<tr><td colspan=\"6\" class=\"empty\">No reviews yet. Start reviewing some code!</td></tr>".to_string()
+        } else {
+            rows
+        },
         refresh_seconds
     );
 

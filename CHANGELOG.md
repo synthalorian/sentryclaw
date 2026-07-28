@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to SentryShark will be documented in this file.
+All notable changes to SentryClaw will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -37,4 +37,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker image publishing to GHCR with multi-arch support (amd64, arm64)
 - Binary release automation via GitHub Actions
 
-[1.0.0]: https://github.com/synthalorian/sentryshark/releases/tag/v1.0.0
+[1.0.0]: https://github.com/synthalorian/sentryclaw/releases/tag/v1.0.0

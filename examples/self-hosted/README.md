@@ -12,7 +12,7 @@ port = 3000
 [github]
 webhook_secret = "change-me-in-production"
 app_id = "123456"
-private_key_path = "/etc/sentryshark/github-private-key.pem"
+private_key_path = "/etc/sentryclaw/github-private-key.pem"
 use_app_auth = true
 installation_id = 12345678
 
@@ -36,7 +36,7 @@ summary_comment = true
 enabled = true
 
 [database]
-path = "/var/lib/sentryshark/sentryshark.db"
+path = "/var/lib/sentryclaw/sentryclaw.db"
 
 [dashboard]
 enabled = true
@@ -54,20 +54,20 @@ ttl_hours = 24
 
 ## Systemd Service
 
-Create `/etc/systemd/system/sentryshark.service`:
+Create `/etc/systemd/system/sentryclaw.service`:
 
 ```ini
 [Unit]
-Description=SentryShark AI Code Review Bot
+Description=SentryClaw AI Code Review Bot
 After=network.target
 
 [Service]
 Type=simple
-User=sentryshark
-Group=sentryshark
-WorkingDirectory=/opt/sentryshark
-ExecStart=/usr/local/bin/sentryshark
-Environment="CONFIG_PATH=/etc/sentryshark/config.toml"
+User=sentryclaw
+Group=sentryclaw
+WorkingDirectory=/opt/sentryclaw
+ExecStart=/usr/local/bin/sentryclaw
+Environment="CONFIG_PATH=/etc/sentryclaw/config.toml"
 Environment="RUST_LOG=info"
 Restart=always
 RestartSec=5
@@ -81,10 +81,10 @@ WantedBy=multi-user.target
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name sentryshark.example.com;
+    server_name sentryclaw.example.com;
 
-    ssl_certificate /etc/letsencrypt/live/sentryshark.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/sentryshark.example.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/sentryclaw.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/sentryclaw.example.com/privkey.pem;
 
     location / {
         proxy_pass http://localhost:3000;

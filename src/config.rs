@@ -191,7 +191,7 @@ fn default_gitlab_url() -> String {
 }
 
 fn default_db_path() -> String {
-    "sentryshark.db".to_string()
+    "sentryclaw.db".to_string()
 }
 
 fn default_dashboard_refresh() -> u64 {
@@ -410,8 +410,8 @@ impl Default for DashboardConfig {
 
 impl AppConfig {
     pub fn load() -> anyhow::Result<Self> {
-        let config_path = std::env::var("CONFIG_PATH")
-            .unwrap_or_else(|_| "config.toml".to_string());
+        let config_path =
+            std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config.toml".to_string());
 
         let config = if Path::new(&config_path).exists() {
             let content = std::fs::read_to_string(&config_path)?;

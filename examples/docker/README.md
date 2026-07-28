@@ -8,8 +8,8 @@ This example uses Docker Compose with a llama.cpp sidecar.
 version: "3.8"
 
 services:
-  sentryshark:
-    image: ghcr.io/synthalorian/sentryshark:latest
+  sentryclaw:
+    image: ghcr.io/synthalorian/sentryclaw:latest
     ports:
       - "3000:3000"
     environment:
@@ -18,7 +18,7 @@ services:
     volumes:
       - ./config.toml:/app/config.toml:ro
       - ./github-private-key.pem:/app/github-private-key.pem:ro
-      - sentryshark-data:/app/data
+      - sentryclaw-data:/app/data
     depends_on:
       - llama
     restart: unless-stopped
@@ -49,7 +49,7 @@ services:
       start_period: 60s
 
 volumes:
-  sentryshark-data:
+  sentryclaw-data:
 ```
 
 ## config.toml
@@ -74,7 +74,7 @@ max_tokens = 4096
 temperature = 0.1
 
 [database]
-path = "/app/data/sentryshark.db"
+path = "/app/data/sentryclaw.db"
 
 [dashboard]
 enabled = true
@@ -87,7 +87,7 @@ enabled = true
 docker-compose up -d
 
 # View logs
-docker-compose logs -f sentryshark
+docker-compose logs -f sentryclaw
 
 # Stop services
 docker-compose down

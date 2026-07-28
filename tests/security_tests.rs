@@ -1,4 +1,4 @@
-//! Security audit tests for SentryShark
+//! Security audit tests for SentryClaw
 //!
 //! These tests verify:
 //! - Webhook signature verification (HMAC-SHA256)
@@ -22,7 +22,8 @@ fn test_no_hardcoded_secrets_in_source() {
 
     let output = Command::new("grep")
         .args([
-            "-r", "-n",
+            "-r",
+            "-n",
             "--include=*.rs",
             "-E",
             &secret_patterns.join("|"),
@@ -32,10 +33,12 @@ fn test_no_hardcoded_secrets_in_source() {
         .expect("Failed to run grep");
 
     let matches = String::from_utf8_lossy(&output.stdout);
-    let _test_files: Vec<&str> = matches.lines()
+    let _test_files: Vec<&str> = matches
+        .lines()
         .filter(|line| line.contains("test") || line.contains("Test"))
         .collect();
-    let non_test_matches: Vec<&str> = matches.lines()
+    let non_test_matches: Vec<&str> = matches
+        .lines()
         .filter(|line| !line.contains("test") && !line.contains("Test"))
         .collect();
 
@@ -96,7 +99,11 @@ fn test_gitlab_token_constant_time_comparison() {
         if token.len() != expected.len() {
             return false;
         }
-        token.bytes().zip(expected.bytes()).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0
+        token
+            .bytes()
+            .zip(expected.bytes())
+            .fold(0u8, |acc, (a, b)| acc | (a ^ b))
+            == 0
     }
 
     let mut headers = HeaderMap::new();
@@ -112,7 +119,7 @@ fn test_gitlab_token_constant_time_comparison() {
 fn test_config_does_not_log_secrets() {
     // Verify that the config struct does not implement Display in a way that
     // would leak secrets to logs
-    use sentryshark::config::AppConfig;
+    use sentryclaw::config::AppConfig;
 
     let config = AppConfig::default();
     let debug_str = format!("{:?}", config);
@@ -125,7 +132,7 @@ fn test_config_does_not_log_secrets() {
 
 #[test]
 fn test_rate_limiter_prevents_brute_force() {
-    use sentryshark::rate_limit::RateLimiter;
+    use sentryclaw::rate_limit::RateLimiter;
 
     let limiter = RateLimiter::new(3, 60); // 3 requests per 60 seconds
 
@@ -146,14 +153,14 @@ fn test_rate_limiter_prevents_brute_force() {
 
 #[test]
 fn test_input_validation_rejects_invalid_config() {
-    use sentryshark::config::{
-        AppConfig, GitHubConfig, LlmConfig, ReviewConfig,
-        DiffFilterConfig, BatchingConfig, DatabaseConfig, DashboardConfig,
+    use sentryclaw::config::{
+        AppConfig, BatchingConfig, DashboardConfig, DatabaseConfig, DiffFilterConfig, GitHubConfig,
+        LlmConfig, ReviewConfig,
     };
 
     // Test invalid temperature
     let config = AppConfig {
-        server: sentryshark::config::ServerConfig {
+        server: sentryclaw::config::ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 3000,
         },
@@ -188,7 +195,7 @@ fn test_input_validation_rejects_invalid_config() {
 
 #[test]
 fn test_no_sensitive_data_in_metrics() {
-    use sentryshark::metrics::Metrics;
+    use sentryclaw::metrics::Metrics;
 
     let metrics = Metrics::new();
     metrics.record_webhook_received();
@@ -208,18 +215,18 @@ fn test_no_sensitive_data_in_metrics() {
 fn test_health_endpoint_no_info_leak() {
     // The health endpoint should not leak internal details
     // that could aid attackers
-    use sentryshark::config::{
-        AppConfig, GitHubConfig, LlmConfig, ReviewConfig,
-        DiffFilterConfig, BatchingConfig, DatabaseConfig, DashboardConfig,
+    use sentryclaw::config::{
+        AppConfig, BatchingConfig, DashboardConfig, DatabaseConfig, DiffFilterConfig, GitHubConfig,
+        LlmConfig, ReviewConfig,
     };
-    use sentryshark::db::Database;
-    use sentryshark::metrics::Metrics;
-    use sentryshark::rate_limit::RateLimiter;
-    use sentryshark::AppState;
+    use sentryclaw::db::Database;
+    use sentryclaw::metrics::Metrics;
+    use sentryclaw::rate_limit::RateLimiter;
+    use sentryclaw::AppState;
     use std::sync::Arc;
 
     let config = AppConfig {
-        server: sentryshark::config::ServerConfig {
+        server: sentryclaw::config::ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 3000,
         },
@@ -262,18 +269,14 @@ fn test_health_endpoint_no_info_leak() {
     // The debug representation may contain secrets, which is fine for debug
     // but we should ensure the actual HTTP response doesn't leak them
     assert!(status.contains("my-secret")); // Debug contains it
-    // The actual JSON response in main.rs filters this out
+                                           // The actual JSON response in main.rs filters this out
 }
 
 #[test]
 fn test_diff_filter_no_path_traversal() {
-    use sentryshark::diff_filter::DiffFilter;
+    use sentryclaw::diff_filter::DiffFilter;
 
-    let filter = DiffFilter::new(
-        &["*.lock".to_string()],
-        &["dist/".to_string()],
-        true,
-    );
+    let filter = DiffFilter::new(&["*.lock".to_string()], &["dist/".to_string()], true);
 
     // Path traversal attempts should be handled safely
     let diff = r#"diff --git a/../../../etc/passwd b/../../../etc/passwd
@@ -291,7 +294,7 @@ fn test_diff_filter_no_path_traversal() {
 
 #[test]
 fn test_sql_injection_prevention_in_search() {
-    use sentryshark::db::{Database, ReviewSearchFilters};
+    use sentryclaw::db::{Database, ReviewSearchFilters};
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
@@ -316,8 +319,8 @@ fn test_sql_injection_prevention_in_search() {
 
 #[test]
 fn test_review_cache_isolation() {
-    use sentryshark::db::Database;
-    use sentryshark::inline_comments::{ReviewVerdict, StructuredReview};
+    use sentryclaw::db::Database;
+    use sentryclaw::inline_comments::{ReviewVerdict, StructuredReview};
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {

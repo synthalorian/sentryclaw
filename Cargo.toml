@@ -1,11 +1,11 @@
 [package]
-name = "sentryshark"
+name = "sentryclaw"
 version = "1.0.0"
 edition = "2021"
 authors = ["synthalorian <synthalorian@gmail.com>"]
 description = "Self-hosted AI code review bot using local LLMs"
 license = "MIT"
-repository = "https://github.com/synthalorian/sentryshark"
+repository = "https://github.com/synthalorian/sentryclaw"
 
 [dependencies]
 tokio = { version = "1.35", features = ["full"] }

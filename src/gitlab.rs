@@ -1,16 +1,20 @@
 use axum::{
     extract::State,
-    http::{StatusCode, HeaderMap},
+    http::{HeaderMap, StatusCode},
 };
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, instrument};
 use std::time::Duration;
 use subtle::ConstantTimeEq;
+use tracing::{error, info, instrument, warn};
 
-use crate::{AppState, review::{ReviewEngine, CommitRange}, llm::LlmClient};
-use crate::inline_comments::{ReviewVerdict, SeverityLevel, ReviewParser};
-use crate::auto_approve::{AutoApprover, auto_approve_message};
+use crate::auto_approve::{auto_approve_message, AutoApprover};
 use crate::cache::ReviewCache;
+use crate::inline_comments::{ReviewParser, ReviewVerdict, SeverityLevel};
+use crate::{
+    llm::LlmClient,
+    review::{CommitRange, ReviewEngine},
+    AppState,
+};
 
 #[derive(Debug, Deserialize)]
 pub struct GitLabWebhook {
@@ -70,7 +74,7 @@ fn verify_gitlab_token(headers: &HeaderMap, expected: &str) -> bool {
         .get("x-gitlab-token")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-    
+
     let token_bytes = token.as_bytes();
     let expected_bytes = expected.as_bytes();
     let max_len = token_bytes.len().max(expected_bytes.len());
@@ -184,17 +188,16 @@ pub async fn webhook_handler(
 
         if use_batching {
             let batch_key = format!("{}:{}", project_path, mr_iid);
-            let commit = CommitRange { base: base.clone(), head: head.clone() };
-            
-            let new_batch = engine.add_to_batch(
-                &batch_key,
-                &repo_url,
-                commit,
-            ).await;
+            let commit = CommitRange {
+                base: base.clone(),
+                head: head.clone(),
+            };
+
+            let new_batch = engine.add_to_batch(&batch_key, &repo_url, commit).await;
 
             if new_batch.is_some() {
                 tokio::time::sleep(batch_timeout).await;
-                
+
                 if let Some(batch) = engine.get_batch(&batch_key).await {
                     process_batch_review(
                         &engine,
@@ -209,7 +212,8 @@ pub async fn webhook_handler(
                         ci_cd_enabled,
                         &metrics,
                         review_start,
-                    ).await;
+                    )
+                    .await;
                 }
             }
         } else {
@@ -231,7 +235,9 @@ pub async fn webhook_handler(
             if let Some(reason) = AutoApprover::is_trivial(&diff, &auto_approve_config) {
                 info!("Auto-approving MR !{}: {}", mr_iid, reason);
                 let body = auto_approve_message(&reason);
-                if let Err(e) = post_review_note(project_id, mr_iid, &body, &access_token, &base_url).await {
+                if let Err(e) =
+                    post_review_note(project_id, mr_iid, &body, &access_token, &base_url).await
+                {
                     error!("Failed to post auto-approve note: {}", e);
                 }
                 metrics.record_auto_approve();
@@ -244,7 +250,7 @@ pub async fn webhook_handler(
                     Ok(Some(cached_review)) => {
                         info!("Using cached review for MR !{}", mr_iid);
                         metrics.record_cache_hit();
-                let repo_name = format!("gitlab/{}", project_id);
+                        let repo_name = format!("gitlab/{}", project_id);
                         let verdict = format!("{:?}", cached_review.verdict);
                         if let Err(e) = post_review(
                             project_id,
@@ -255,7 +261,9 @@ pub async fn webhook_handler(
                             &base_url,
                             Some(&database),
                             ci_cd_enabled,
-                        ).await {
+                        )
+                        .await
+                        {
                             error!("Failed to post cached review: {}", e);
                             metrics.record_review_failed();
                         } else {
@@ -300,7 +308,9 @@ pub async fn webhook_handler(
                 &base_url,
                 Some(&database),
                 ci_cd_enabled,
-            ).await {
+            )
+            .await
+            {
                 error!("Failed to post GitLab review: {}", e);
                 metrics.record_review_failed();
             } else {
@@ -329,13 +339,12 @@ async fn process_batch_review(
 ) {
     info!(
         "Processing batch review for !{} in project {} with {} commits",
-        mr_iid, project_id, batch.commits.len()
+        mr_iid,
+        project_id,
+        batch.commits.len()
     );
 
-    let diff = match engine.clone_and_diff_batch(
-        &batch.repo_url,
-        &batch.commits,
-    ) {
+    let diff = match engine.clone_and_diff_batch(&batch.repo_url, &batch.commits) {
         Ok(d) => d,
         Err(e) => {
             error!("Failed to generate batch diff: {}", e);
@@ -361,7 +370,18 @@ async fn process_batch_review(
     let verdict = format!("{:?}", review.verdict);
     let repo_name = format!("gitlab/{}", project_id);
 
-    if let Err(e) = post_review(project_id, mr_iid, head_sha, &review, access_token, base_url, database, ci_cd_enabled).await {
+    if let Err(e) = post_review(
+        project_id,
+        mr_iid,
+        head_sha,
+        &review,
+        access_token,
+        base_url,
+        database,
+        ci_cd_enabled,
+    )
+    .await
+    {
         error!("Failed to post GitLab batch review: {}", e);
         metrics.record_review_failed();
     } else {
@@ -390,7 +410,8 @@ pub async fn post_review(
                 comment,
                 access_token,
                 base_url,
-            ).await?;
+            )
+            .await?;
         }
     }
 
@@ -404,24 +425,35 @@ pub async fn post_review(
     if let Some(db) = database {
         let verdict = format!("{:?}", review.verdict);
         let repo = format!("gitlab/{}", project_id);
-        let critical_count = review.inline_comments.iter()
-            .filter(|c| matches!(c.severity, SeverityLevel::Critical)).count() as i64;
-        let warning_count = review.inline_comments.iter()
-            .filter(|c| matches!(c.severity, SeverityLevel::Warning)).count() as i64;
-        let info_count = review.inline_comments.iter()
-            .filter(|c| matches!(c.severity, SeverityLevel::Info)).count() as i64;
-        let _ = db.save_review(
-            &repo,
-            mr_iid as i64,
-            "gitlab",
-            head_sha,
-            &verdict,
-            &review.summary,
-            review.inline_comments.len() as i64,
-            critical_count,
-            warning_count,
-            info_count,
-        ).await;
+        let critical_count = review
+            .inline_comments
+            .iter()
+            .filter(|c| matches!(c.severity, SeverityLevel::Critical))
+            .count() as i64;
+        let warning_count = review
+            .inline_comments
+            .iter()
+            .filter(|c| matches!(c.severity, SeverityLevel::Warning))
+            .count() as i64;
+        let info_count = review
+            .inline_comments
+            .iter()
+            .filter(|c| matches!(c.severity, SeverityLevel::Info))
+            .count() as i64;
+        let _ = db
+            .save_review(
+                &repo,
+                mr_iid as i64,
+                "gitlab",
+                head_sha,
+                &verdict,
+                &review.summary,
+                review.inline_comments.len() as i64,
+                critical_count,
+                warning_count,
+                info_count,
+            )
+            .await;
     }
 
     Ok(())
@@ -457,7 +489,7 @@ async fn post_inline_discussion(
     let response = client
         .post(&url)
         .header("PRIVATE-TOKEN", access_token)
-        .header("User-Agent", "SentryShark")
+        .header("User-Agent", "SentryClaw")
         .json(&discussion)
         .send()
         .await?;
@@ -465,7 +497,11 @@ async fn post_inline_discussion(
     if !response.status().is_success() {
         let status = response.status();
         let text = response.text().await.unwrap_or_default();
-        return Err(anyhow::anyhow!("GitLab discussion API error {}: {}", status, text));
+        return Err(anyhow::anyhow!(
+            "GitLab discussion API error {}: {}",
+            status,
+            text
+        ));
     }
 
     info!(
@@ -495,7 +531,7 @@ pub async fn post_review_note(
     let response = client
         .post(&url)
         .header("PRIVATE-TOKEN", access_token)
-        .header("User-Agent", "SentryShark")
+        .header("User-Agent", "SentryClaw")
         .json(&note)
         .send()
         .await?;
@@ -506,7 +542,10 @@ pub async fn post_review_note(
         return Err(anyhow::anyhow!("GitLab API error {}: {}", status, text));
     }
 
-    info!("Posted review note to !{} in project {}", mr_iid, project_id);
+    info!(
+        "Posted review note to !{} in project {}",
+        mr_iid, project_id
+    );
     Ok(())
 }
 
@@ -518,10 +557,8 @@ pub fn format_summary_body(review: &crate::inline_comments::StructuredReview) ->
     };
 
     let mut body = format!(
-        "\u{1f988} **SentryShark Code Review**\n\n{} **Verdict:** {:?}\n\n{}",
-        verdict_emoji,
-        review.verdict,
-        review.summary
+        "\u{1f99e} **SentryClaw Code Review**\n\n{} **Verdict:** {:?}\n\n{}",
+        verdict_emoji, review.verdict, review.summary
     );
 
     if !review.inline_comments.is_empty() {
@@ -549,10 +586,8 @@ pub fn format_ci_summary_body(review: &crate::inline_comments::StructuredReview)
     };
 
     let mut body = format!(
-        "\u{1f988} **SentryShark CI/CD Review**\n\n{} **Verdict:** {:?}\n\n{}",
-        verdict_emoji,
-        review.verdict,
-        review.summary
+        "\u{1f99e} **SentryClaw CI/CD Review**\n\n{} **Verdict:** {:?}\n\n{}",
+        verdict_emoji, review.verdict, review.summary
     );
 
     if !review.inline_comments.is_empty() {
@@ -594,14 +629,12 @@ mod tests {
         let review = crate::inline_comments::StructuredReview {
             verdict: ReviewVerdict::Approve,
             summary: "Looks good!".to_string(),
-            inline_comments: vec![
-                crate::inline_comments::InlineComment {
-                    file_path: "src/main.rs".to_string(),
-                    line: 42,
-                    body: "Consider error handling".to_string(),
-                    severity: SeverityLevel::Warning,
-                }
-            ],
+            inline_comments: vec![crate::inline_comments::InlineComment {
+                file_path: "src/main.rs".to_string(),
+                line: 42,
+                body: "Consider error handling".to_string(),
+                severity: SeverityLevel::Warning,
+            }],
         };
 
         let body = format_summary_body(&review);

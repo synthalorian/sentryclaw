@@ -1,4 +1,4 @@
-# SentryShark — Development Plan
+# SentryClaw — Development Plan
 
 Self-hosted AI code review bot. Rust + Axum. No cloud, no API keys.
 
