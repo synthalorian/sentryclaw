@@ -162,7 +162,7 @@ fn real_github_pr_payload() -> String {
             "state": "open",
             "locked": false,
             "user": {
-                "login": "synthalorian",
+                "login": "synth",
                 "id": 98765432
             },
             "created_at": "2024-01-15T10:30:00Z",
@@ -176,12 +176,12 @@ fn real_github_pr_payload() -> String {
             "clone_url": "https://github.com/synthalorian/sentryclaw.git",
             "html_url": "https://github.com/synthalorian/sentryclaw",
             "owner": {
-                "login": "synthalorian",
+                "login": "synth",
                 "id": 98765432
             }
         },
         "sender": {
-            "login": "synthalorian",
+            "login": "synth",
             "id": 98765432
         }
     }"#.to_string()
