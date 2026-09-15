@@ -326,7 +326,7 @@ SentryClaw is designed for minimal resource usage:
 
 ## License
 
-MIT — This is the wave. 🎹🦞
+MIT — This is the wave. ⚫🦞
 
 ---
 
